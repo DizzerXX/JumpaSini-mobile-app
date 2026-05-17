@@ -17,13 +17,15 @@ class SessionModel extends SessionEntity {
   factory SessionModel.fromJson(Map<String, dynamic> json) {
     final participantsList = json['participants'] as List<dynamic>? ?? [];
     return SessionModel(
-      id: json['id'] as String,
-      shortCode: json['short_code'] as String,
-      transportMode: json['transport_mode'] as String,
-      venueType: json['venue_type'] as String,
-      halalFilter: json['halal_filter'] as bool,
-      status: json['status'] as String,
-      expiresAt: DateTime.parse(json['expires_at'] as String),
+      id: json['id'] as String? ?? '',
+      shortCode: json['short_code'] as String? ?? '',
+      transportMode: json['transport_mode'] as String? ?? '',
+      venueType: json['venue_type'] as String? ?? '',
+      halalFilter: json['halal_filter'] as bool? ?? false,
+      status: json['status'] as String? ?? '',
+      expiresAt: json['expires_at'] != null
+          ? DateTime.parse(json['expires_at'] as String)
+          : DateTime.now(),
       participants: participantsList
           .map((p) => ParticipantModel.fromJson(p as Map<String, dynamic>))
           .toList(),

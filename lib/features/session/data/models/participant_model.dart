@@ -12,11 +12,11 @@ class ParticipantModel extends ParticipantEntity {
 
   factory ParticipantModel.fromJson(Map<String, dynamic> json) {
     return ParticipantModel(
-      id: json['id'] as String,
+      id: json['id'] as String? ?? '',
       name: json['name'] as String?,
-      address: json['address'] as String,
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
+      address: json['address'] as String? ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
