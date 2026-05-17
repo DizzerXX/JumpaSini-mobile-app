@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'core/api/api_client.dart';
-import 'features/session/bloc/session_bloc.dart';
-import 'features/session/data/session_repository.dart';
-import 'features/session/ui/session_page.dart';
-import 'features/venues/bloc/venues_bloc.dart';
-import 'features/venues/data/venues_repository.dart';
+import 'core/constants/app_colors.dart';
+import 'core/constants/app_strings.dart';
+import 'core/di/injection_container.dart' as di;
+import 'features/session/presentation/bloc/session_bloc.dart';
+import 'features/session/presentation/pages/home_page.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  di.setup();
   runApp(const JumpaSiniApp());
 }
 
@@ -17,33 +18,54 @@ class JumpaSiniApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final apiClient = ApiClient();
-
-    return MultiRepositoryProvider(
+    return MultiBlocProvider(
       providers: [
-        RepositoryProvider(create: (_) => SessionRepository(apiClient)),
-        RepositoryProvider(create: (_) => VenuesRepository(apiClient)),
+        BlocProvider<SessionBloc>(create: (_) => di.sl<SessionBloc>()),
       ],
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider(
-            create: (context) => SessionBloc(context.read<SessionRepository>()),
+      child: MaterialApp(
+        title: AppStrings.appName,
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          colorScheme: const ColorScheme.light(
+            primary: AppColors.primary,
+            onPrimary: Colors.white,
+            primaryContainer: AppColors.primaryContainer,
+            onPrimaryContainer: AppColors.textPrimary,
+            secondary: AppColors.secondary,
+            onSecondary: AppColors.textPrimary,
+            surface: AppColors.surface,
+            onSurface: AppColors.textPrimary,
+            error: AppColors.error,
+            onError: Colors.white,
           ),
-          BlocProvider(
-            create: (context) => VenuesBloc(context.read<VenuesRepository>()),
+          useMaterial3: true,
+          scaffoldBackgroundColor: AppColors.background,
+          appBarTheme: const AppBarTheme(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
           ),
-        ],
-        child: MaterialApp(
-          title: 'JumpaSini',
-          debugShowCheckedModeBanner: false,
-          theme: ThemeData(
-            colorScheme: ColorScheme.fromSeed(
-              seedColor: const Color(0xFF1B5E20),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
-            useMaterial3: true,
           ),
-          home: const SessionPage(),
+          chipTheme: ChipThemeData(
+            selectedColor: AppColors.primary,
+            labelStyle: const TextStyle(color: AppColors.textPrimary),
+            secondaryLabelStyle: const TextStyle(color: Colors.white),
+            backgroundColor: AppColors.chipUnselected,
+            secondarySelectedColor: AppColors.primary,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
+        home: const HomePage(),
       ),
     );
   }

@@ -5,6 +5,7 @@ import '../../features/session/data/datasources/session_remote_datasource.dart';
 import '../../features/session/data/repositories/session_repository_impl.dart';
 import '../../features/session/domain/repositories/session_repository.dart';
 import '../../features/session/domain/usecases/add_participant.dart';
+import '../../features/session/domain/usecases/calculate_midpoint.dart';
 import '../../features/session/domain/usecases/create_session.dart';
 import '../../features/session/domain/usecases/get_session.dart';
 import '../../features/session/domain/usecases/remove_participant.dart';
@@ -32,12 +33,14 @@ void setup() {
   sl.registerLazySingleton(() => AddParticipant(sl()));
   sl.registerLazySingleton(() => GetSession(sl()));
   sl.registerLazySingleton(() => RemoveParticipant(sl()));
+  sl.registerLazySingleton(() => CalculateMidpoint(sl()));
   sl.registerFactory(
     () => SessionBloc(
       createSession: sl(),
       addParticipant: sl(),
       getSession: sl(),
       removeParticipant: sl(),
+      calculateMidpoint: sl(),
     ),
   );
 
