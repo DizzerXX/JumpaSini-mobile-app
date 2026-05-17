@@ -97,13 +97,13 @@ class _RecommendationView extends StatelessWidget {
             ),
 
             // Divider with "Other Options" label
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  const Expanded(child: Divider()),
+                  Expanded(child: Divider()),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
                     child: Text(
                       'Other Options',
                       style: TextStyle(
@@ -114,7 +114,7 @@ class _RecommendationView extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Expanded(child: Divider()),
+                  Expanded(child: Divider()),
                 ],
               ),
             ),
