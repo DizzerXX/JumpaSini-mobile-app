@@ -1,6 +1,13 @@
 import 'package:get_it/get_it.dart';
 
 import '../network/api_client.dart';
+import '../../features/collaboration/data/datasources/collaboration_remote_datasource.dart';
+import '../../features/collaboration/data/repositories/collaboration_repository_impl.dart';
+import '../../features/collaboration/domain/repositories/collaboration_repository.dart';
+import '../../features/collaboration/domain/usecases/cast_vote.dart';
+import '../../features/collaboration/domain/usecases/confirm_venue.dart';
+import '../../features/collaboration/domain/usecases/get_session_summary.dart';
+import '../../features/collaboration/domain/usecases/get_votes.dart';
 import '../../features/session/data/datasources/session_remote_datasource.dart';
 import '../../features/session/data/repositories/session_repository_impl.dart';
 import '../../features/session/domain/repositories/session_repository.dart';
@@ -44,6 +51,18 @@ void setup() {
       calculateMidpoint: sl(),
     ),
   );
+
+  // ── Collaboration ────────────────────────────────────────────────────────
+  sl.registerLazySingleton<CollaborationRemoteDatasource>(
+    () => CollaborationRemoteDatasourceImpl(sl()),
+  );
+  sl.registerLazySingleton<CollaborationRepository>(
+    () => CollaborationRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => CastVote(sl()));
+  sl.registerLazySingleton(() => GetVotes(sl()));
+  sl.registerLazySingleton(() => ConfirmVenue(sl()));
+  sl.registerLazySingleton(() => GetSessionSummary(sl()));
 
   // ── Venue ─────────────────────────────────────────────────────────────────
   sl.registerLazySingleton<VenueRemoteDatasource>(
