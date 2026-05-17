@@ -2,17 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../../domain/entities/venue_entity.dart';
 import 'halal_badge.dart';
+import 'travel_time_row.dart';
 
 class VenueCard extends StatelessWidget {
   final VenueEntity venue;
   final VoidCallback onTap;
   final void Function(bool) onReportHalal;
+  final Map<String, String> participantNames;
 
   const VenueCard({
     super.key,
     required this.venue,
     required this.onTap,
     required this.onReportHalal,
+    this.participantNames = const {},
   });
 
   @override
@@ -47,6 +50,29 @@ class VenueCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (venue.isBestPick)
+                          Container(
+                            margin: const EdgeInsets.only(right: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.shade100,
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.amber.shade600,
+                              ),
+                            ),
+                            child: Text(
+                              '⭐ Best',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.amber.shade800,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
                         _MenuButton(onReportHalal: onReportHalal),
                       ],
                     ),
@@ -76,6 +102,13 @@ class VenueCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                    if (venue.travelTimes.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      TravelTimeRow(
+                        travelTimes: venue.travelTimes,
+                        participantNames: participantNames,
+                      ),
+                    ],
                     const SizedBox(height: 6),
                     HalalBadge(
                       isHalal: venue.isHalal,
