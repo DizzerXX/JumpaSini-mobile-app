@@ -12,6 +12,7 @@ class SessionEntity extends Equatable {
   final DateTime expiresAt;
   final List<ParticipantEntity> participants;
   final DateTime? createdAt;
+  final String? shareableUrl;
 
   const SessionEntity({
     required this.id,
@@ -23,6 +24,7 @@ class SessionEntity extends Equatable {
     required this.expiresAt,
     this.participants = const [],
     this.createdAt,
+    this.shareableUrl,
   });
 
   int get participantCount => participants.length;
@@ -42,5 +44,6 @@ class SessionEntity extends Equatable {
         expiresAt,
         participants,
         createdAt,
+        shareableUrl,
       ];
 }

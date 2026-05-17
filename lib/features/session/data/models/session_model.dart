@@ -12,6 +12,7 @@ class SessionModel extends SessionEntity {
     required super.expiresAt,
     super.participants,
     super.createdAt,
+    super.shareableUrl,
   });
 
   factory SessionModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +33,7 @@ class SessionModel extends SessionEntity {
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
+      shareableUrl: json['shareable_url'] as String?,
     );
   }
 

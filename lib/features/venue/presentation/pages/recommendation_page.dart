@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/di/injection_container.dart';
+import '../../../collaboration/presentation/bloc/collaboration_bloc.dart';
+import '../../../collaboration/presentation/bloc/collaboration_event.dart';
+import '../../../collaboration/presentation/bloc/collaboration_state.dart';
+import '../../../collaboration/presentation/pages/session_summary_page.dart';
+import '../../../collaboration/presentation/widgets/vote_buttons.dart';
 import '../../domain/entities/recommendation_entity.dart';
 import '../../domain/entities/travel_time.dart';
 import '../../domain/entities/venue_entity.dart';
@@ -28,8 +34,16 @@ class RecommendationPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<VenueBloc>()..add(LoadVenuesEvent(shortCode)),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => sl<VenueBloc>()..add(LoadVenuesEvent(shortCode)),
+        ),
+        BlocProvider(
+          create: (_) => sl<CollaborationBloc>()
+            ..add(GetVotesEvent(shortCode)),
+        ),
+      ],
       child: _RecommendationView(
         recommendation: recommendation,
         shortCode: shortCode,
@@ -64,6 +78,14 @@ class _RecommendationView extends StatelessWidget {
     return Colors.red;
   }
 
+  void _share(BuildContext context) {
+    Share.share(
+      'Join my JumpaSini session!\n'
+      'Code: $shortCode\n'
+      'Open: http://localhost:4200/session/$shortCode',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final names = _participantNames;
@@ -81,8 +103,18 @@ class _RecommendationView extends StatelessWidget {
         automaticallyImplyLeading: false,
         actions: [
           IconButton(
+            icon: const Icon(Icons.people),
+            tooltip: 'Session hub',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => SessionSummaryPage(shortCode: shortCode),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () {},
+            onPressed: () => _share(context),
           ),
         ],
       ),
@@ -90,13 +122,52 @@ class _RecommendationView extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Best pick banner
-            BestPickBanner(
-              venue: recommendation.bestVenue,
-              participantNames: names,
+            // Best pick banner with vote buttons
+            BlocBuilder<CollaborationBloc, CollaborationState>(
+              builder: (context, collab) {
+                final voteSummary =
+                    collab is VotesLoaded ? collab.voteSummary : {};
+                final voteData =
+                    voteSummary[recommendation.bestVenue.placeId];
+                final currentVote =
+                    collab is VoteCast &&
+                            collab.voteSummary
+                                .containsKey(recommendation.bestVenue.placeId)
+                        ? collab.myVote
+                        : null;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    BestPickBanner(
+                      venue: recommendation.bestVenue,
+                      participantNames: names,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: VoteButtons(
+                        placeId: recommendation.bestVenue.placeId,
+                        venueName: recommendation.bestVenue.name,
+                        currentVote: currentVote,
+                        upCount: voteData?.upVotes ?? 0,
+                        downCount: voteData?.downVotes ?? 0,
+                        onVote: (vote) =>
+                            context.read<CollaborationBloc>().add(
+                                  CastVoteEvent(
+                                    shortCode:  shortCode,
+                                    placeId:    recommendation.bestVenue.placeId,
+                                    venueName:  recommendation.bestVenue.name,
+                                    vote:       vote,
+                                  ),
+                                ),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
 
-            // Divider with "Other Options" label
+            // Divider
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -120,7 +191,7 @@ class _RecommendationView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // Horizontal scrollable list of other venues
+            // Horizontal list of other venues
             BlocBuilder<VenueBloc, VenueState>(
               builder: (context, state) {
                 if (state is VenueLoading) {
@@ -138,16 +209,24 @@ class _RecommendationView extends StatelessWidget {
                       .toList();
                   if (others.isEmpty) return const SizedBox.shrink();
                   return SizedBox(
-                    height: 170,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      itemCount: others.length,
-                      itemBuilder: (ctx, i) => _CompactVenueCard(
-                        venue: others[i],
-                        participantNames: names,
-                        shortCode: shortCode,
-                      ),
+                    height: 210,
+                    child: BlocBuilder<CollaborationBloc, CollaborationState>(
+                      builder: (context, collab) {
+                        final voteSummary =
+                            collab is VotesLoaded ? collab.voteSummary : {};
+                        return ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 12),
+                          itemCount: others.length,
+                          itemBuilder: (ctx, i) => _CompactVenueCard(
+                            venue: others[i],
+                            participantNames: names,
+                            shortCode: shortCode,
+                            voteSummary: voteSummary,
+                          ),
+                        );
+                      },
                     ),
                   );
                 }
@@ -157,7 +236,7 @@ class _RecommendationView extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // See All on Map button
+            // See All on Map
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: OutlinedButton.icon(
@@ -237,11 +316,13 @@ class _CompactVenueCard extends StatelessWidget {
   final VenueEntity venue;
   final Map<String, String> participantNames;
   final String shortCode;
+  final Map voteSummary;
 
   const _CompactVenueCard({
     required this.venue,
     required this.participantNames,
     required this.shortCode,
+    required this.voteSummary,
   });
 
   void _showDetail(BuildContext context) {
@@ -261,6 +342,7 @@ class _CompactVenueCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final voteData = voteSummary[venue.placeId];
     return GestureDetector(
       onTap: () => _showDetail(context),
       child: Container(
@@ -302,8 +384,7 @@ class _CompactVenueCard extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               '${(venue.distanceMeters / 1000).toStringAsFixed(1)} km away',
-              style:
-                  const TextStyle(fontSize: 11, color: Colors.black54),
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
             ),
             if (venue.travelTimes.isNotEmpty) ...[
               const SizedBox(height: 6),
@@ -312,6 +393,21 @@ class _CompactVenueCard extends StatelessWidget {
                 participantNames: participantNames,
               ),
             ],
+            const SizedBox(height: 8),
+            VoteButtons(
+              placeId: venue.placeId,
+              venueName: venue.name,
+              upCount: voteData?.upVotes ?? 0,
+              downCount: voteData?.downVotes ?? 0,
+              onVote: (vote) => context.read<CollaborationBloc>().add(
+                    CastVoteEvent(
+                      shortCode: shortCode,
+                      placeId:   venue.placeId,
+                      venueName: venue.name,
+                      vote:      vote,
+                    ),
+                  ),
+            ),
           ],
         ),
       ),

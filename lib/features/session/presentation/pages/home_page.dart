@@ -4,9 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/validators.dart';
+import '../../../collaboration/presentation/pages/session_summary_page.dart';
 import '../bloc/session_bloc.dart';
 import 'add_location_page.dart';
-import 'session_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -38,8 +38,10 @@ class _HomePageState extends State<HomePage> {
         listener: (context, state) {
           if (state is SessionLoaded) {
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => SessionPage(shortCode: state.session.shortCode),
+              MaterialPageRoute<void>(
+                builder: (_) => SessionSummaryPage(
+                  shortCode: state.session.shortCode,
+                ),
               ),
             );
           } else if (state is SessionError) {
