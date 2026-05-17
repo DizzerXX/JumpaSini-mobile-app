@@ -60,7 +60,11 @@ class _VenueMapViewState extends State<VenueMapView> {
             title: venue.name,
             snippet: '${(venue.distanceMeters / 1000).toStringAsFixed(1)} km away',
           ),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            venue.isBestPick
+                ? BitmapDescriptor.hueYellow
+                : BitmapDescriptor.hueAzure,
+          ),
         ),
       );
     }

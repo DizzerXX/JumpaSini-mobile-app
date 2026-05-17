@@ -1,26 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../domain/entities/venue_entity.dart';
 import '../bloc/venue_bloc.dart';
-import '../widgets/halal_badge.dart';
 import '../widgets/venue_card.dart';
+import '../widgets/venue_detail_sheet.dart';
 import '../widgets/venue_map_view.dart';
 
 class VenuesPage extends StatelessWidget {
   final String shortCode;
   final double midpointLat;
   final double midpointLng;
+  final Map<String, String> participantNames;
 
   const VenuesPage({
     super.key,
     required this.shortCode,
     required this.midpointLat,
     required this.midpointLng,
+    this.participantNames = const {},
   });
 
   @override
@@ -31,6 +32,7 @@ class VenuesPage extends StatelessWidget {
         shortCode: shortCode,
         midpointLat: midpointLat,
         midpointLng: midpointLng,
+        participantNames: participantNames,
       ),
     );
   }
@@ -40,11 +42,13 @@ class _VenuesView extends StatefulWidget {
   final String shortCode;
   final double midpointLat;
   final double midpointLng;
+  final Map<String, String> participantNames;
 
   const _VenuesView({
     required this.shortCode,
     required this.midpointLat,
     required this.midpointLng,
+    required this.participantNames,
   });
 
   @override
@@ -126,10 +130,12 @@ class _VenuesViewState extends State<_VenuesView>
               if (_halalOnly)
                 Container(
                   color: AppColors.primaryLight,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                   child: const Row(
                     children: [
-                      Icon(Icons.check_circle, color: AppColors.primary, size: 16),
+                      Icon(Icons.check_circle,
+                          color: AppColors.primary, size: 16),
                       SizedBox(width: 6),
                       Text(
                         'Halal Only',
@@ -149,6 +155,7 @@ class _VenuesViewState extends State<_VenuesView>
                     _ListTab(
                       state: state,
                       shortCode: widget.shortCode,
+                      participantNames: widget.participantNames,
                     ),
                     _MapTab(
                       state: state,
@@ -169,8 +176,13 @@ class _VenuesViewState extends State<_VenuesView>
 class _ListTab extends StatelessWidget {
   final VenueState state;
   final String shortCode;
+  final Map<String, String> participantNames;
 
-  const _ListTab({required this.state, required this.shortCode});
+  const _ListTab({
+    required this.state,
+    required this.shortCode,
+    required this.participantNames,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -204,29 +216,70 @@ class _ListTab extends StatelessWidget {
       );
     }
 
+    final hasBestPick = venues.isNotEmpty && venues[0].isBestPick;
+
+    final items = <Widget>[];
+    if (hasBestPick) {
+      items.add(const _SectionHeader('Recommended ⭐'));
+      items.add(_buildCard(context, venues[0]));
+      if (venues.length > 1) {
+        items.add(const _SectionHeader('Other Options'));
+        for (var i = 1; i < venues.length; i++) {
+          items.add(_buildCard(context, venues[i]));
+        }
+      }
+    } else {
+      for (final venue in venues) {
+        items.add(_buildCard(context, venue));
+      }
+    }
+
     return RefreshIndicator(
       onRefresh: () async {
         context.read<VenueBloc>().add(LoadVenuesEvent(shortCode));
       },
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
-        itemCount: venues.length,
-        itemBuilder: (context, index) {
-          final venue = venues[index];
-          return VenueCard(
-            venue: venue,
-            onTap: () => _showVenueDetail(context, venue, shortCode),
-            onReportHalal: (isHalal) {
-              context.read<VenueBloc>().add(
-                    ReportHalalEvent(
-                      placeId: venue.placeId,
-                      isHalal: isHalal,
-                      shortCode: shortCode,
-                    ),
-                  );
-            },
-          );
-        },
+        children: items,
+      ),
+    );
+  }
+
+  Widget _buildCard(BuildContext context, VenueEntity venue) {
+    return VenueCard(
+      venue: venue,
+      participantNames: participantNames,
+      onTap: () => _showVenueDetail(context, venue, shortCode),
+      onReportHalal: (isHalal) {
+        context.read<VenueBloc>().add(
+              ReportHalalEvent(
+                placeId: venue.placeId,
+                isHalal: isHalal,
+                shortCode: shortCode,
+              ),
+            );
+      },
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+
+  const _SectionHeader(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          color: AppColors.textSecondary,
+          letterSpacing: 0.5,
+        ),
       ),
     );
   }
@@ -270,7 +323,8 @@ class _ShimmerList extends StatelessWidget {
         highlightColor: Colors.grey.shade100,
         child: Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: const SizedBox(height: 96),
         ),
       ),
@@ -278,7 +332,11 @@ class _ShimmerList extends StatelessWidget {
   }
 }
 
-void _showVenueDetail(BuildContext context, VenueEntity venue, String shortCode) {
+void _showVenueDetail(
+  BuildContext context,
+  VenueEntity venue,
+  String shortCode,
+) {
   final bloc = context.read<VenueBloc>();
   showModalBottomSheet<void>(
     context: context,
@@ -288,167 +346,7 @@ void _showVenueDetail(BuildContext context, VenueEntity venue, String shortCode)
     ),
     builder: (_) => BlocProvider.value(
       value: bloc,
-      child: _VenueDetailSheet(venue: venue, shortCode: shortCode),
+      child: VenueDetailSheet(venue: venue, shortCode: shortCode),
     ),
   );
-}
-
-class _VenueDetailSheet extends StatelessWidget {
-  final VenueEntity venue;
-  final String shortCode;
-
-  const _VenueDetailSheet({required this.venue, required this.shortCode});
-
-  Future<void> _openDirections() async {
-    final uri = Uri.parse(venue.googleMapsUrl);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final rating = venue.rating;
-    final distanceKm = (venue.distanceMeters / 1000).toStringAsFixed(1);
-
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            if (venue.photoUrl != null)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                child: Image.network(
-                  venue.photoUrl!,
-                  width: double.infinity,
-                  height: 180,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    venue.name,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    venue.address,
-                    style: const TextStyle(color: Colors.black54, fontSize: 13),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      if (rating != null) ...[
-                        Icon(Icons.star, size: 16, color: Colors.amber.shade600),
-                        const SizedBox(width: 4),
-                        Text(
-                          rating.toStringAsFixed(1),
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                        const SizedBox(width: 12),
-                      ],
-                      const Icon(Icons.directions_walk, size: 16, color: Colors.black45),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$distanceKm km away',
-                        style: const TextStyle(color: Colors.black54, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  HalalBadge(
-                    isHalal: venue.isHalal,
-                    isHalalVerified: venue.isHalalVerified,
-                  ),
-                  const Divider(height: 28),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _openDirections,
-                      icon: const Icon(Icons.directions),
-                      label: const Text('Get Directions'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            context.read<VenueBloc>().add(ReportHalalEvent(
-                                  placeId: venue.placeId,
-                                  isHalal: true,
-                                  shortCode: shortCode,
-                                ));
-                            Navigator.pop(context);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.success),
-                            foregroundColor: AppColors.success,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('Report Halal'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-                            context.read<VenueBloc>().add(ReportHalalEvent(
-                                  placeId: venue.placeId,
-                                  isHalal: false,
-                                  shortCode: shortCode,
-                                ));
-                            Navigator.pop(context);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.error),
-                            foregroundColor: AppColors.error,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: const Text('Report Not Halal'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

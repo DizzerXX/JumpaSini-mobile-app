@@ -3,7 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../venue/presentation/pages/venues_page.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../../venue/presentation/bloc/venue_bloc.dart';
+import '../../../venue/presentation/pages/recommendation_page.dart';
 import '../bloc/session_bloc.dart';
 
 class SessionPage extends StatefulWidget {
@@ -16,53 +18,92 @@ class SessionPage extends StatefulWidget {
 }
 
 class _SessionPageState extends State<SessionPage> {
+  late final VenueBloc _venueBloc;
+  double? _midpointLat;
+  double? _midpointLng;
+  String? _errorMessage;
+  bool _isVenueError = false;
+
   @override
   void initState() {
     super.initState();
-    context
-        .read<SessionBloc>()
-        .add(CalculateMidpointEvent(widget.shortCode));
+    _venueBloc = sl<VenueBloc>();
+    context.read<SessionBloc>().add(CalculateMidpointEvent(widget.shortCode));
+  }
+
+  @override
+  void dispose() {
+    _venueBloc.close();
+    super.dispose();
+  }
+
+  void _retry() {
+    setState(() => _errorMessage = null);
+    if (_isVenueError && _midpointLat != null) {
+      _venueBloc.add(LoadRecommendationEvent(widget.shortCode));
+    } else {
+      context
+          .read<SessionBloc>()
+          .add(CalculateMidpointEvent(widget.shortCode));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text(AppStrings.appName),
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        automaticallyImplyLeading: false,
-      ),
-      body: BlocListener<SessionBloc, SessionState>(
-        listener: (context, state) {
-          if (state is MidpointCalculated) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => VenuesPage(
-                  shortCode: state.shortCode,
-                  midpointLat: state.lat,
-                  midpointLng: state.lng,
-                ),
-              ),
-            );
-          } else if (state is SessionError) {
-            // Error is shown in the builder below — no nav needed
-          }
-        },
-        child: BlocBuilder<SessionBloc, SessionState>(
-          builder: (context, state) {
-            if (state is SessionError) {
-              return _ErrorView(
-                message: state.message,
-                onRetry: () => context
-                    .read<SessionBloc>()
-                    .add(CalculateMidpointEvent(widget.shortCode)),
-              );
-            }
-            return const _LoadingView();
-          },
+    return BlocProvider.value(
+      value: _venueBloc,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: const Text(AppStrings.appName),
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+        ),
+        body: MultiBlocListener(
+          listeners: [
+            BlocListener<SessionBloc, SessionState>(
+              listener: (context, state) {
+                if (state is MidpointCalculated) {
+                  _midpointLat = state.lat;
+                  _midpointLng = state.lng;
+                  _venueBloc.add(
+                    LoadRecommendationEvent(state.shortCode),
+                  );
+                } else if (state is SessionError) {
+                  setState(() {
+                    _errorMessage = state.message;
+                    _isVenueError = false;
+                  });
+                }
+              },
+            ),
+            BlocListener<VenueBloc, VenueState>(
+              listener: (context, state) {
+                if (state is RecommendationLoaded) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute<void>(
+                      builder: (_) => RecommendationPage(
+                        recommendation: state.recommendation,
+                        shortCode: widget.shortCode,
+                        midpointLat: _midpointLat!,
+                        midpointLng: _midpointLng!,
+                      ),
+                    ),
+                  );
+                } else if (state is VenueError) {
+                  setState(() {
+                    _errorMessage = state.message;
+                    _isVenueError = true;
+                  });
+                }
+              },
+            ),
+          ],
+          child: _errorMessage != null
+              ? _ErrorView(message: _errorMessage!, onRetry: _retry)
+              : const _LoadingView(),
         ),
       ),
     );
