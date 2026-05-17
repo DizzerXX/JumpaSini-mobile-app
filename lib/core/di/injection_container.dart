@@ -1,0 +1,55 @@
+import 'package:get_it/get_it.dart';
+
+import '../network/api_client.dart';
+import '../../features/session/data/datasources/session_remote_datasource.dart';
+import '../../features/session/data/repositories/session_repository_impl.dart';
+import '../../features/session/domain/repositories/session_repository.dart';
+import '../../features/session/domain/usecases/add_participant.dart';
+import '../../features/session/domain/usecases/create_session.dart';
+import '../../features/session/domain/usecases/get_session.dart';
+import '../../features/session/domain/usecases/remove_participant.dart';
+import '../../features/session/presentation/bloc/session_bloc.dart';
+import '../../features/venue/data/datasources/venue_remote_datasource.dart';
+import '../../features/venue/data/repositories/venue_repository_impl.dart';
+import '../../features/venue/domain/repositories/venue_repository.dart';
+import '../../features/venue/domain/usecases/get_venues.dart';
+import '../../features/venue/presentation/bloc/venue_bloc.dart';
+
+final sl = GetIt.instance;
+
+void setup() {
+  // Network
+  sl.registerLazySingleton<ApiClient>(ApiClient.new);
+
+  // ── Session ──────────────────────────────────────────────────────────────
+  sl.registerLazySingleton<SessionRemoteDatasource>(
+    () => SessionRemoteDatasourceImpl(sl()),
+  );
+  sl.registerLazySingleton<SessionRepository>(
+    () => SessionRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => CreateSession(sl()));
+  sl.registerLazySingleton(() => AddParticipant(sl()));
+  sl.registerLazySingleton(() => GetSession(sl()));
+  sl.registerLazySingleton(() => RemoveParticipant(sl()));
+  sl.registerFactory(
+    () => SessionBloc(
+      createSession: sl(),
+      addParticipant: sl(),
+      getSession: sl(),
+      removeParticipant: sl(),
+    ),
+  );
+
+  // ── Venue ─────────────────────────────────────────────────────────────────
+  sl.registerLazySingleton<VenueRemoteDatasource>(
+    () => VenueRemoteDatasourceImpl(sl()),
+  );
+  sl.registerLazySingleton<VenueRepository>(
+    () => VenueRepositoryImpl(sl()),
+  );
+  sl.registerLazySingleton(() => GetVenues(sl()));
+  sl.registerFactory(
+    () => VenueBloc(getVenues: sl(), venueRepository: sl()),
+  );
+}
