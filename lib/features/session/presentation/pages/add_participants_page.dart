@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -74,6 +75,16 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
     } finally {
       if (mounted) setState(() => _fetchingLocation = false);
     }
+  }
+
+  void _useTestLocation(String address, double lat, double lng) {
+    setState(() {
+      _selectedLocation = LocationResult(
+        address: address,
+        latitude: lat,
+        longitude: lng,
+      );
+    });
   }
 
   void _addParticipant(BuildContext context) {
@@ -195,6 +206,8 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
                           style: TextStyle(color: AppColors.primary),
                         ),
                       ),
+                      if (kDebugMode)
+                        _DebugLocationButtons(onSelect: _useTestLocation),
                       if (_selectedLocation != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 4, bottom: 8),
@@ -376,6 +389,60 @@ class _BottomBar extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DebugLocationButtons extends StatelessWidget {
+  final void Function(String address, double lat, double lng) onSelect;
+
+  static const _locations = [
+    (label: 'KLCC', address: 'KLCC, Kuala Lumpur', lat: 3.1579, lng: 101.7119),
+    (label: 'Subang Jaya', address: 'Subang Jaya, Selangor', lat: 3.0456, lng: 101.5797),
+    (label: 'Petaling Jaya', address: 'Petaling Jaya, Selangor', lat: 3.1073, lng: 101.6067),
+  ];
+
+  const _DebugLocationButtons({required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'DEBUG — Test locations',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: Colors.orange,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: _locations
+                .map(
+                  (loc) => ActionChip(
+                    label: Text(loc.label, style: const TextStyle(fontSize: 12)),
+                    onPressed: () => onSelect(loc.address, loc.lat, loc.lng),
+                    backgroundColor: Colors.amber.shade100,
+                    side: BorderSide(color: Colors.amber.shade400),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                  ),
+                )
+                .toList(),
+          ),
+        ],
       ),
     );
   }
