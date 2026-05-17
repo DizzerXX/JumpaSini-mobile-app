@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'travel_time.dart';
+
 class VenueEntity extends Equatable {
   final String placeId;
   final String name;
@@ -14,6 +16,9 @@ class VenueEntity extends Equatable {
   final String? photoUrl;
   final String googleMapsUrl;
   final String source;
+  final Map<String, TravelTime> travelTimes;
+  final bool isBestPick;
+  final double score;
 
   const VenueEntity({
     required this.placeId,
@@ -29,6 +34,9 @@ class VenueEntity extends Equatable {
     this.photoUrl,
     required this.googleMapsUrl,
     required this.source,
+    this.travelTimes = const {},
+    this.isBestPick = false,
+    this.score = 0.0,
   });
 
   @override
@@ -46,5 +54,8 @@ class VenueEntity extends Equatable {
         photoUrl,
         googleMapsUrl,
         source,
+        travelTimes,
+        isBestPick,
+        score,
       ];
 }
