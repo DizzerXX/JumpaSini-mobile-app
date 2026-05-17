@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
+import '../../domain/entities/recommendation_entity.dart';
 import '../../domain/entities/venue_entity.dart';
 import '../../domain/repositories/venue_repository.dart';
 import '../datasources/venue_remote_datasource.dart';
@@ -22,6 +23,24 @@ class VenueRepositoryImpl implements VenueRepository {
       return Left(NetworkFailure(e.message));
     } on ValidationException catch (e) {
       return Left(ValidationFailure(e.message, errors: e.errors));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message, statusCode: e.statusCode));
+    }
+  }
+
+  @override
+  Future<Either<Failure, RecommendationEntity>> getRecommendation(
+    String shortCode,
+  ) async {
+    try {
+      final recommendation = await _datasource.getRecommendation(shortCode);
+      return Right(recommendation);
+    } on NotFoundException catch (e) {
+      return Left(NotFoundFailure(e.message));
+    } on ValidationException catch (e) {
+      return Left(ValidationFailure(e.message, errors: e.errors));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message, statusCode: e.statusCode));
     }

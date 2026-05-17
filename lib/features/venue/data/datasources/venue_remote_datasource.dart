@@ -3,10 +3,13 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
+import '../models/recommendation_model.dart';
 import '../models/venue_model.dart';
 
 abstract class VenueRemoteDatasource {
   Future<List<VenueModel>> getVenues(String shortCode);
+
+  Future<RecommendationModel> getRecommendation(String shortCode);
 
   Future<void> reportHalal(String placeId, bool isHalal, String? sessionId);
 }
@@ -26,6 +29,18 @@ class VenueRemoteDatasourceImpl implements VenueRemoteDatasource {
       return list
           .map((e) => VenueModel.fromJson(e as Map<String, dynamic>))
           .toList();
+    } on DioException catch (e) {
+      _rethrowMapped(e);
+    }
+  }
+
+  @override
+  Future<RecommendationModel> getRecommendation(String shortCode) async {
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        ApiConstants.recommendation(shortCode),
+      );
+      return RecommendationModel.fromJson(response.data!);
     } on DioException catch (e) {
       _rethrowMapped(e);
     }

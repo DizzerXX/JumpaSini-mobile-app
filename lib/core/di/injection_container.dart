@@ -13,6 +13,7 @@ import '../../features/session/presentation/bloc/session_bloc.dart';
 import '../../features/venue/data/datasources/venue_remote_datasource.dart';
 import '../../features/venue/data/repositories/venue_repository_impl.dart';
 import '../../features/venue/domain/repositories/venue_repository.dart';
+import '../../features/venue/domain/usecases/get_recommendation.dart';
 import '../../features/venue/domain/usecases/get_venues.dart';
 import '../../features/venue/presentation/bloc/venue_bloc.dart';
 
@@ -52,7 +53,12 @@ void setup() {
     () => VenueRepositoryImpl(sl()),
   );
   sl.registerLazySingleton(() => GetVenues(sl()));
+  sl.registerLazySingleton(() => GetRecommendation(sl()));
   sl.registerFactory(
-    () => VenueBloc(getVenues: sl(), venueRepository: sl()),
+    () => VenueBloc(
+      getVenues: sl(),
+      getRecommendation: sl(),
+      venueRepository: sl(),
+    ),
   );
 }

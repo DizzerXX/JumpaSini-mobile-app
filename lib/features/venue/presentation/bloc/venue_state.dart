@@ -25,6 +25,15 @@ class VenuesLoaded extends VenueState {
   List<Object?> get props => [venues, filteredVenues];
 }
 
+class RecommendationLoaded extends VenueState {
+  final RecommendationEntity recommendation;
+
+  const RecommendationLoaded(this.recommendation);
+
+  @override
+  List<Object?> get props => [recommendation];
+}
+
 class VenueError extends VenueState {
   final String message;
 

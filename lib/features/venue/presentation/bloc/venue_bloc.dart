@@ -1,7 +1,9 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../domain/entities/recommendation_entity.dart';
 import '../../domain/entities/venue_entity.dart';
+import '../../domain/usecases/get_recommendation.dart';
 import '../../domain/usecases/get_venues.dart';
 import '../../domain/repositories/venue_repository.dart';
 
@@ -10,17 +12,21 @@ part 'venue_state.dart';
 
 class VenueBloc extends Bloc<VenueEvent, VenueState> {
   final GetVenues _getVenues;
+  final GetRecommendation _getRecommendation;
   final VenueRepository _venueRepository;
 
   VenueBloc({
     required GetVenues getVenues,
+    required GetRecommendation getRecommendation,
     required VenueRepository venueRepository,
   })  : _getVenues = getVenues,
+        _getRecommendation = getRecommendation,
         _venueRepository = venueRepository,
         super(const VenueInitial()) {
     on<LoadVenuesEvent>(_onLoadVenues);
     on<FilterVenuesEvent>(_onFilterVenues);
     on<ReportHalalEvent>(_onReportHalal);
+    on<LoadRecommendationEvent>(_onLoadRecommendation);
   }
 
   Future<void> _onLoadVenues(
@@ -61,6 +67,18 @@ class VenueBloc extends Bloc<VenueEvent, VenueState> {
         emit(const HalalReportSubmitted());
         add(LoadVenuesEvent(event.shortCode));
       },
+    );
+  }
+
+  Future<void> _onLoadRecommendation(
+    LoadRecommendationEvent event,
+    Emitter<VenueState> emit,
+  ) async {
+    emit(const VenueLoading());
+    final result = await _getRecommendation(event.shortCode);
+    result.fold(
+      (failure) => emit(VenueError(failure.message)),
+      (recommendation) => emit(RecommendationLoaded(recommendation)),
     );
   }
 }

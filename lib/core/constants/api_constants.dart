@@ -16,6 +16,7 @@ class ApiConstants {
 
   static String midpoint(String code) => '/sessions/$code/midpoint';
   static String venues(String code) => '/sessions/$code/venues';
+  static String recommendation(String code) => '/sessions/$code/recommendation';
   static String halalReport(String placeId) => '/venues/$placeId/halal-report';
 
   // Add your Google Maps / Places API key here.

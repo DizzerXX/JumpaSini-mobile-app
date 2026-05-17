@@ -41,3 +41,12 @@ class ReportHalalEvent extends VenueEvent {
   @override
   List<Object?> get props => [placeId, isHalal, shortCode, sessionId];
 }
+
+class LoadRecommendationEvent extends VenueEvent {
+  final String shortCode;
+
+  const LoadRecommendationEvent(this.shortCode);
+
+  @override
+  List<Object?> get props => [shortCode];
+}
