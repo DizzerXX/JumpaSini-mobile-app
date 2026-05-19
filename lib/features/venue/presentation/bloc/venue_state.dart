@@ -46,3 +46,21 @@ class VenueError extends VenueState {
 class HalalReportSubmitted extends VenueState {
   const HalalReportSubmitted();
 }
+
+class WeatherLoaded extends VenueState {
+  final WeatherAssessment assessment;
+
+  const WeatherLoaded(this.assessment);
+
+  @override
+  List<Object?> get props => [assessment];
+}
+
+class WeatherError extends VenueState {
+  final String message;
+
+  const WeatherError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}

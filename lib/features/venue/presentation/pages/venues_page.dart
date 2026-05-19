@@ -5,10 +5,12 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../domain/entities/venue_entity.dart';
+import '../../domain/entities/weather_assessment.dart';
 import '../bloc/venue_bloc.dart';
 import '../widgets/venue_card.dart';
 import '../widgets/venue_detail_sheet.dart';
 import '../widgets/venue_map_view.dart';
+import '../widgets/weather_banner.dart';
 
 class VenuesPage extends StatelessWidget {
   final String shortCode;
@@ -27,7 +29,9 @@ class VenuesPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => sl<VenueBloc>()..add(LoadVenuesEvent(shortCode)),
+      create: (_) => sl<VenueBloc>()
+        ..add(LoadVenuesEvent(shortCode))
+        ..add(LoadWeatherEvent(shortCode)),
       child: _VenuesView(
         shortCode: shortCode,
         midpointLat: midpointLat,
@@ -59,6 +63,7 @@ class _VenuesViewState extends State<_VenuesView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _halalOnly = false;
+  WeatherAssessment? _weather;
 
   @override
   void initState() {
@@ -122,11 +127,15 @@ class _VenuesViewState extends State<_VenuesView>
                 backgroundColor: AppColors.error,
               ),
             );
+          } else if (state is WeatherLoaded) {
+            setState(() => _weather = state.assessment);
           }
         },
         builder: (context, state) {
           return Column(
             children: [
+              if (_weather != null)
+                WeatherBanner(assessment: _weather!),
               if (_halalOnly)
                 Container(
                   color: AppColors.primaryLight,

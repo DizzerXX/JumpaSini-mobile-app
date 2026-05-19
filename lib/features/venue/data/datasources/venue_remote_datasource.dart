@@ -5,9 +5,12 @@ import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/recommendation_model.dart';
 import '../models/venue_model.dart';
+import '../models/weather_model.dart';
 
 abstract class VenueRemoteDatasource {
   Future<List<VenueModel>> getVenues(String shortCode);
+
+  Future<WeatherModel> getWeather(String shortCode);
 
   Future<RecommendationModel> getRecommendation(String shortCode);
 
@@ -25,10 +28,25 @@ class VenueRemoteDatasourceImpl implements VenueRemoteDatasource {
       final response = await _client.dio.get<Map<String, dynamic>>(
         ApiConstants.venues(shortCode),
       );
-      final list = response.data!['data'] as List<dynamic>;
+      final data = response.data!['data'] as Map<String, dynamic>;
+      final list = data['venues'] as List<dynamic>;
       return list
           .map((e) => VenueModel.fromJson(e as Map<String, dynamic>))
           .toList();
+    } on DioException catch (e) {
+      _rethrowMapped(e);
+    }
+  }
+
+  @override
+  Future<WeatherModel> getWeather(String shortCode) async {
+    try {
+      final response = await _client.dio.get<Map<String, dynamic>>(
+        ApiConstants.weather(shortCode),
+      );
+      return WeatherModel.fromJson(
+        response.data!['data'] as Map<String, dynamic>,
+      );
     } on DioException catch (e) {
       _rethrowMapped(e);
     }

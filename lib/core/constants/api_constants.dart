@@ -21,6 +21,7 @@ class ApiConstants {
   static String votes(String code) => '/sessions/$code/votes';
   static String confirm(String code) => '/sessions/$code/confirm';
   static String summary(String code) => '/sessions/$code/summary';
+  static String weather(String code) => '/sessions/$code/weather';
 
   // Add your Google Maps / Places API key here.
   // Enable: Maps SDK for Android, Places API in Google Cloud Console.

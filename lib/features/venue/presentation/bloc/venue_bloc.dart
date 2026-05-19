@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../domain/entities/recommendation_entity.dart';
 import '../../domain/entities/venue_entity.dart';
+import '../../domain/entities/weather_assessment.dart';
 import '../../domain/usecases/get_recommendation.dart';
 import '../../domain/usecases/get_venues.dart';
 import '../../domain/repositories/venue_repository.dart';
@@ -27,6 +28,7 @@ class VenueBloc extends Bloc<VenueEvent, VenueState> {
     on<FilterVenuesEvent>(_onFilterVenues);
     on<ReportHalalEvent>(_onReportHalal);
     on<LoadRecommendationEvent>(_onLoadRecommendation);
+    on<LoadWeatherEvent>(_onLoadWeather);
   }
 
   Future<void> _onLoadVenues(
@@ -79,6 +81,17 @@ class VenueBloc extends Bloc<VenueEvent, VenueState> {
     result.fold(
       (failure) => emit(VenueError(failure.message)),
       (recommendation) => emit(RecommendationLoaded(recommendation)),
+    );
+  }
+
+  Future<void> _onLoadWeather(
+    LoadWeatherEvent event,
+    Emitter<VenueState> emit,
+  ) async {
+    final result = await _venueRepository.getWeather(event.shortCode);
+    result.fold(
+      (failure) => emit(WeatherError(failure.message)),
+      (assessment) => emit(WeatherLoaded(assessment)),
     );
   }
 }
