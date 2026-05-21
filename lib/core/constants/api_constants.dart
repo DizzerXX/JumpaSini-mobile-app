@@ -29,6 +29,6 @@ class ApiConstants {
   static String summary(String code) => '/sessions/$code/summary';
   static String weather(String code) => '/sessions/$code/weather';
 
-  static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
-  static const String googlePlacesApiKey = 'YOUR_GOOGLE_PLACES_API_KEY';
+  static const String googleMapsApiKey = 'AIzaSyDDnyee-T-FoRTr74S3MTgL6m_spHPL_AU';
+  static const String googlePlacesApiKey = 'AIzaSyDDnyee-T-FoRTr74S3MTgL6m_spHPL_AU';
 }
