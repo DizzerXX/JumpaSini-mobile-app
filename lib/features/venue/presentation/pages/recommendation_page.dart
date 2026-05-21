@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../../../core/constants/api_constants.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/di/injection_container.dart';
 import '../../../collaboration/presentation/bloc/collaboration_bloc.dart';
@@ -82,7 +83,7 @@ class _RecommendationView extends StatelessWidget {
     Share.share(
       'Join my JumpaSini session!\n'
       'Code: $shortCode\n'
-      'Open: http://localhost:4200/session/$shortCode',
+      'Open: ${ApiConstants.webAppUrl}/session/$shortCode',
     );
   }
 

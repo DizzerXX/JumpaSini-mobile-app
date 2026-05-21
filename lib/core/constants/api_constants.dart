@@ -1,9 +1,15 @@
+const bool _isProduction = bool.fromEnvironment('dart.vm.product');
+
 class ApiConstants {
   ApiConstants._();
 
-  // 10.0.2.2 is Android emulator's alias for host machine localhost.
-  // Replace with your LAN IP (e.g. 192.168.x.x) for physical device testing.
-  static const String baseUrl = 'http://10.0.2.2:8000/api/v1';
+  static const String baseUrl = _isProduction
+      ? 'https://jumpasini-backend.onrender.com/api/v1'
+      : 'http://10.0.2.2:8000/api/v1';
+
+  static const String webAppUrl = _isProduction
+      ? 'https://jumpasini-dashboard.onrender.com'
+      : 'http://localhost:4200';
 
   static const String sessions = '/sessions';
 
@@ -23,8 +29,6 @@ class ApiConstants {
   static String summary(String code) => '/sessions/$code/summary';
   static String weather(String code) => '/sessions/$code/weather';
 
-  // Add your Google Maps / Places API key here.
-  // Enable: Maps SDK for Android, Places API in Google Cloud Console.
   static const String googleMapsApiKey = 'YOUR_GOOGLE_MAPS_API_KEY';
   static const String googlePlacesApiKey = 'YOUR_GOOGLE_PLACES_API_KEY';
 }

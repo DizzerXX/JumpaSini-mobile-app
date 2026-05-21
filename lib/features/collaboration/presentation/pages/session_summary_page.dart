@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../session/presentation/pages/home_page.dart';
@@ -35,7 +36,7 @@ class _SessionSummaryView extends StatelessWidget {
 
   void _share(SessionSummaryEntity summary) {
     final shareableUrl = summary.session.shareableUrl ??
-        'http://localhost:4200/session/$shortCode';
+        '${ApiConstants.webAppUrl}/session/$shortCode';
     Share.share(
       'Join my JumpaSini session! Code: $shortCode\n'
       'Or open: $shareableUrl',
