@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/boundary_helper.dart';
@@ -11,7 +13,7 @@ import '../../domain/entities/session_entity.dart';
 import '../bloc/session_bloc.dart';
 import '../widgets/location_search_field.dart';
 import '../widgets/participant_card.dart';
-import 'session_page.dart';
+import '../../../collaboration/presentation/pages/session_summary_page.dart';
 
 class AddParticipantsPage extends StatefulWidget {
   final SessionEntity session;
@@ -134,6 +136,15 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
               _selectedLocation = null;
               _nameController.clear();
             });
+            if (state.session.participants.length == 1) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute<void>(
+                  builder: (_) => SessionSummaryPage(
+                    shortCode: state.session.shortCode,
+                  ),
+                ),
+              );
+            }
           } else if (state is SessionError) {
             _showError(state.message);
           }
@@ -282,30 +293,39 @@ class _SessionCodeBanner extends StatelessWidget {
 
   const _SessionCodeBanner({required this.shortCode});
 
+  void _share() {
+    Share.share(
+      'Join my JumpaSini session!\n'
+      'Code: $shortCode\n'
+      'Link: ${ApiConstants.webAppUrl}/session/$shortCode',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      color: AppColors.primaryLight,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      child: Row(
-        children: [
-          const Icon(Icons.share, size: 16, color: AppColors.primary),
-          const SizedBox(width: 8),
-          const Text(
-            '${AppStrings.sessionCode}: ',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-          ),
-          Text(
-            shortCode,
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: AppColors.primary,
-              letterSpacing: 2,
+    return GestureDetector(
+      onTap: _share,
+      child: Container(
+        width: double.infinity,
+        color: AppColors.primaryLight,
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.share, size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Session Code: $shortCode — Tap to share',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: AppColors.primary,
+                  letterSpacing: 1,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -344,7 +364,7 @@ class _BottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final canProceed = session.participantCount >= 2;
+    final canProceed = session.participantCount >= 1;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
@@ -367,8 +387,8 @@ class _BottomBar extends StatelessWidget {
                 onPressed: canProceed
                     ? () {
                         Navigator.of(context).pushReplacement(
-                          MaterialPageRoute(
-                            builder: (_) => SessionPage(
+                          MaterialPageRoute<void>(
+                            builder: (_) => SessionSummaryPage(
                               shortCode: session.shortCode,
                             ),
                           ),

@@ -78,7 +78,7 @@ class CollaborationBloc extends Bloc<CollaborationEvent, CollaborationState> {
     GetSessionSummaryEvent event,
     Emitter<CollaborationState> emit,
   ) async {
-    emit(const CollaborationLoading());
+    if (!event.silent) emit(const CollaborationLoading());
     final result = await _getSessionSummary(event.shortCode);
     result.fold(
       (failure) => emit(CollaborationError(failure.message)),

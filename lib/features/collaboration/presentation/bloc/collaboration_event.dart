@@ -47,8 +47,9 @@ class ConfirmVenueEvent extends CollaborationEvent {
 
 class GetSessionSummaryEvent extends CollaborationEvent {
   final String shortCode;
+  final bool silent;
 
-  const GetSessionSummaryEvent(this.shortCode);
+  const GetSessionSummaryEvent(this.shortCode, {this.silent = false});
 
   @override
   List<Object?> get props => [shortCode];

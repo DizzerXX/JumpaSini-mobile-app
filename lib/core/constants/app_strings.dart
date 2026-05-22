@@ -40,7 +40,10 @@ class AppStrings {
   static const String addParticipant = 'Add to list';
   static const String findMeetupSpot = 'Find Meetup Spot';
   static const String participantsCount = 'participants added';
-  static const String minParticipants = 'Add at least 2 locations to continue';
+  static const String minParticipants =
+      'Add your location to start. Share the code for others to join.';
+  static const String waitingForOthers = 'Waiting for friends to join...';
+  static const String recalculatingSpots = 'Recalculating best spots...';
   static const String maxParticipants = 'Maximum 6 participants reached';
   static const String currentLocationLabel = 'Current Location';
 

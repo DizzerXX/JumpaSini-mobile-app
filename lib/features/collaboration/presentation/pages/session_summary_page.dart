@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -5,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_strings.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../session/presentation/pages/home_page.dart';
 import '../../domain/entities/session_summary_entity.dart';
@@ -29,22 +32,53 @@ class SessionSummaryPage extends StatelessWidget {
   }
 }
 
-class _SessionSummaryView extends StatelessWidget {
+// ── Stateful view — owns polling timer and recalculating state ────────────────
+
+class _SessionSummaryView extends StatefulWidget {
   final String shortCode;
 
   const _SessionSummaryView({required this.shortCode});
 
+  @override
+  State<_SessionSummaryView> createState() => _SessionSummaryViewState();
+}
+
+class _SessionSummaryViewState extends State<_SessionSummaryView> {
+  Timer? _pollTimer;
+  Timer? _recalculatingTimer;
+  int _previousParticipantCount = 0;
+  bool _isRecalculating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (mounted) {
+        context.read<CollaborationBloc>().add(
+              GetSessionSummaryEvent(widget.shortCode, silent: true),
+            );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _recalculatingTimer?.cancel();
+    super.dispose();
+  }
+
   void _share(SessionSummaryEntity summary) {
-    final shareableUrl = summary.session.shareableUrl ??
-        '${ApiConstants.webAppUrl}/session/$shortCode';
+    final url = summary.session.shareableUrl ??
+        '${ApiConstants.webAppUrl}/session/${widget.shortCode}';
     Share.share(
-      'Join my JumpaSini session! Code: $shortCode\n'
-      'Or open: $shareableUrl',
+      'Join my JumpaSini session! Code: ${widget.shortCode}\n'
+      'Or open: $url',
     );
   }
 
   void _copyCode(BuildContext context) {
-    Clipboard.setData(ClipboardData(text: shortCode));
+    Clipboard.setData(ClipboardData(text: widget.shortCode));
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Session code copied!')),
     );
@@ -70,6 +104,18 @@ class _SessionSummaryView extends StatelessWidget {
               ),
             );
           }
+          if (state is SessionSummaryLoaded) {
+            final newCount = state.summary.participants.length;
+            if (newCount > _previousParticipantCount &&
+                _previousParticipantCount > 0) {
+              setState(() => _isRecalculating = true);
+              _recalculatingTimer?.cancel();
+              _recalculatingTimer = Timer(const Duration(seconds: 4), () {
+                if (mounted) setState(() => _isRecalculating = false);
+              });
+            }
+            _previousParticipantCount = newCount;
+          }
         },
         builder: (context, state) {
           if (state is CollaborationLoading || state is CollaborationInitial) {
@@ -78,19 +124,20 @@ class _SessionSummaryView extends StatelessWidget {
             );
           }
 
-          if (state is CollaborationError) {
+          if (state is CollaborationError && _previousParticipantCount == 0) {
             return _ErrorBody(
               message: state.message,
               onRetry: () => context
                   .read<CollaborationBloc>()
-                  .add(GetSessionSummaryEvent(shortCode)),
+                  .add(GetSessionSummaryEvent(widget.shortCode)),
             );
           }
 
           if (state is SessionSummaryLoaded) {
             return _SummaryBody(
               summary: state.summary,
-              shortCode: shortCode,
+              shortCode: widget.shortCode,
+              isRecalculating: _isRecalculating,
               onShare: () => _share(state.summary),
               onCopyCode: () => _copyCode(context),
             );
@@ -106,12 +153,14 @@ class _SessionSummaryView extends StatelessWidget {
 class _SummaryBody extends StatelessWidget {
   final SessionSummaryEntity summary;
   final String shortCode;
+  final bool isRecalculating;
   final VoidCallback onShare;
   final VoidCallback onCopyCode;
 
   const _SummaryBody({
     required this.summary,
     required this.shortCode,
+    required this.isRecalculating,
     required this.onShare,
     required this.onCopyCode,
   });
@@ -124,6 +173,7 @@ class _SummaryBody extends StatelessWidget {
     return _InProgressBody(
       summary: summary,
       shortCode: shortCode,
+      isRecalculating: isRecalculating,
       onShare: onShare,
       onCopyCode: onCopyCode,
     );
@@ -135,18 +185,22 @@ class _SummaryBody extends StatelessWidget {
 class _InProgressBody extends StatelessWidget {
   final SessionSummaryEntity summary;
   final String shortCode;
+  final bool isRecalculating;
   final VoidCallback onShare;
   final VoidCallback onCopyCode;
 
   const _InProgressBody({
     required this.summary,
     required this.shortCode,
+    required this.isRecalculating,
     required this.onShare,
     required this.onCopyCode,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isWaiting = summary.participants.length == 1;
+
     return RefreshIndicator(
       onRefresh: () async => context
           .read<CollaborationBloc>()
@@ -154,6 +208,10 @@ class _InProgressBody extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          if (isRecalculating) ...[
+            _RecalculatingBanner(),
+            const SizedBox(height: 12),
+          ],
           _CodeCard(
             shortCode: shortCode,
             onCopy: onCopyCode,
@@ -162,10 +220,99 @@ class _InProgressBody extends StatelessWidget {
           const SizedBox(height: 20),
           _ParticipantList(participants: summary.participants),
           const SizedBox(height: 20),
-          _VoteSection(summary: summary),
-          const SizedBox(height: 20),
-          _ConfirmButton(summary: summary, shortCode: shortCode),
-          const SizedBox(height: 32),
+          if (isWaiting) ...[
+            _WaitingCard(),
+            const SizedBox(height: 20),
+          ] else ...[
+            _VoteSection(summary: summary),
+            const SizedBox(height: 20),
+            _ConfirmButton(summary: summary, shortCode: shortCode),
+            const SizedBox(height: 32),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _RecalculatingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.orange.shade300),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.orange.shade700,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            AppStrings.recalculatingSpots,
+            style: TextStyle(
+              color: Colors.orange.shade800,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WaitingCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(color: Color(0x1A000000), blurRadius: 8),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.people_outline, size: 52, color: AppColors.primary.withValues(alpha: 0.6)),
+          const SizedBox(height: 14),
+          const Text(
+            AppStrings.waitingForOthers,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppColors.textPrimary,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Share the session code above so friends can join from their device.',
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'The best meetup spot will be calculated automatically as people join.',
+            style: TextStyle(
+              color: Colors.black38,
+              fontSize: 12,
+            ),
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -258,7 +405,7 @@ class _ParticipantList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Participants (${participants.length})',
+          '${participants.length} ${participants.length == 1 ? 'person' : 'people'} in this session',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
         const SizedBox(height: 8),
@@ -377,7 +524,7 @@ class _CompletedBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Participants (${summary.participants.length})',
+                '${summary.participants.length} ${summary.participants.length == 1 ? 'person' : 'people'} in this session',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
