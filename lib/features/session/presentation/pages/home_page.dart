@@ -3,9 +3,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/utils/permission_handler.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../collaboration/presentation/pages/session_summary_page.dart';
 import '../bloc/session_bloc.dart';
+import '../widgets/location_permission_dialog.dart';
 import 'add_location_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -28,6 +30,27 @@ class _HomePageState extends State<HomePage> {
   void _joinSession(BuildContext context) {
     if (!_formKey.currentState!.validate()) return;
     context.read<SessionBloc>().add(GetSessionEvent(_codeController.text.trim().toUpperCase()));
+  }
+
+  Future<void> _handleStartTap(BuildContext context) async {
+    final granted = await LocationPermissionHandler.isGranted();
+    if (!granted && context.mounted) {
+      final permanentlyDenied =
+          await LocationPermissionHandler.isPermanentlyDenied();
+      if (context.mounted) {
+        await showDialog<bool>(
+          context: context,
+          builder: (_) => LocationPermissionDialog(
+            isPermanentlyDenied: permanentlyDenied,
+          ),
+        );
+      }
+    }
+    if (context.mounted) {
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const AddLocationPage()),
+      );
+    }
   }
 
   @override
@@ -61,7 +84,7 @@ class _HomePageState extends State<HomePage> {
                 const Spacer(flex: 2),
                 _Logo(),
                 const SizedBox(height: 48),
-                _StartButton(),
+                _StartButton(onPressed: () => _handleStartTap(context)),
                 const SizedBox(height: 24),
                 _DividerRow(),
                 const SizedBox(height: 24),
@@ -114,17 +137,17 @@ class _Logo extends StatelessWidget {
 }
 
 class _StartButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _StartButton({required this.onPressed});
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
       height: 56,
       child: ElevatedButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const AddLocationPage()),
-          );
-        },
+        onPressed: onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
