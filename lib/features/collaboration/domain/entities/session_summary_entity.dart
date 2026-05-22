@@ -4,6 +4,7 @@ import '../../../../features/session/domain/entities/participant_entity.dart';
 import '../../../../features/session/domain/entities/session_entity.dart';
 import '../../../../features/venue/domain/entities/venue_entity.dart';
 import 'vote_summary_entity.dart';
+import 'voting_state_entity.dart';
 
 class SessionSummaryEntity extends Equatable {
   final SessionEntity session;
@@ -12,6 +13,8 @@ class SessionSummaryEntity extends Equatable {
   final double? midpointLng;
   final VenueEntity? confirmedVenue;
   final Map<String, VoteSummaryEntity> voteSummary;
+  final VotingStateEntity? votingState;
+  final Map<String, String> venueNames;
   final bool isComplete;
   final DateTime expiresAt;
 
@@ -22,6 +25,8 @@ class SessionSummaryEntity extends Equatable {
     this.midpointLng,
     this.confirmedVenue,
     this.voteSummary = const {},
+    this.votingState,
+    this.venueNames = const {},
     required this.isComplete,
     required this.expiresAt,
   });
@@ -34,6 +39,8 @@ class SessionSummaryEntity extends Equatable {
         midpointLng,
         confirmedVenue,
         voteSummary,
+        votingState,
+        venueNames,
         isComplete,
         expiresAt,
       ];

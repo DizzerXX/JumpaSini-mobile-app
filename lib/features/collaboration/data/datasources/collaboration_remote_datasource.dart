@@ -22,6 +22,8 @@ abstract class CollaborationRemoteDatasource {
   Future<void> confirmVenue(String shortCode, String placeId);
 
   Future<SessionSummaryEntity> getSessionSummary(String shortCode);
+
+  Future<SessionSummaryEntity> startVoting(String shortCode);
 }
 
 class CollaborationRemoteDatasourceImpl
@@ -87,6 +89,18 @@ class CollaborationRemoteDatasourceImpl
     try {
       final response = await _client.dio.get<Map<String, dynamic>>(
         ApiConstants.summary(shortCode),
+      );
+      return SessionSummaryModel.fromJson(response.data!);
+    } on DioException catch (e) {
+      _rethrowMapped(e);
+    }
+  }
+
+  @override
+  Future<SessionSummaryEntity> startVoting(String shortCode) async {
+    try {
+      final response = await _client.dio.post<Map<String, dynamic>>(
+        ApiConstants.votingStart(shortCode),
       );
       return SessionSummaryModel.fromJson(response.data!);
     } on DioException catch (e) {

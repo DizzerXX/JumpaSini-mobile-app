@@ -2,6 +2,7 @@ import '../../../../features/session/data/models/participant_model.dart';
 import '../../../../features/session/data/models/session_model.dart';
 import '../../../../features/venue/domain/entities/venue_entity.dart';
 import '../../domain/entities/session_summary_entity.dart';
+import '../../domain/entities/voting_state_entity.dart';
 import 'vote_summary_model.dart';
 
 class SessionSummaryModel extends SessionSummaryEntity {
@@ -12,6 +13,8 @@ class SessionSummaryModel extends SessionSummaryEntity {
     super.midpointLng,
     super.confirmedVenue,
     super.voteSummary,
+    super.votingState,
+    super.venueNames,
     required super.isComplete,
     required super.expiresAt,
   });
@@ -38,38 +41,75 @@ class SessionSummaryModel extends SessionSummaryEntity {
     final rawVotes = data['vote_summary'] as Map<String, dynamic>? ?? {};
     final voteSummary = VoteSummaryModel.mapFromJson(rawVotes);
 
+    final votingStateJson = data['voting_state'] as Map<String, dynamic>?;
+    final votingState =
+        votingStateJson != null ? _parseVotingState(votingStateJson) : null;
+
+    final recommendationJson = data['recommendation'] as Map<String, dynamic>?;
+    final venueNames = _parseVenueNames(recommendationJson);
+
     final isComplete = data['is_complete'] as bool? ?? false;
     final expiresAt = data['expires_at'] != null
         ? DateTime.parse(data['expires_at'] as String)
         : DateTime.now().add(const Duration(hours: 48));
 
     return SessionSummaryModel(
-      session:      session,
-      participants: participants,
-      midpointLat:  midpointLat,
-      midpointLng:  midpointLng,
+      session:       session,
+      participants:  participants,
+      midpointLat:   midpointLat,
+      midpointLng:   midpointLng,
       confirmedVenue: confirmedVenue,
-      voteSummary:  voteSummary,
-      isComplete:   isComplete,
-      expiresAt:    expiresAt,
+      voteSummary:   voteSummary,
+      votingState:   votingState,
+      venueNames:    venueNames,
+      isComplete:    isComplete,
+      expiresAt:     expiresAt,
     );
+  }
+
+  static VotingStateEntity _parseVotingState(Map<String, dynamic> json) {
+    return VotingStateEntity(
+      active:               json['active'] as bool? ?? false,
+      endsAt:               json['ends_at'] != null
+                                ? DateTime.parse(json['ends_at'] as String)
+                                : null,
+      secondsRemaining:     (json['seconds_remaining'] as num?)?.toInt() ?? 0,
+      winningVenue:         json['winning_venue'] as String?,
+      votingConfirmedVenue: json['voting_confirmed_venue'] as String?,
+    );
+  }
+
+  static Map<String, String> _parseVenueNames(
+    Map<String, dynamic>? recommendation,
+  ) {
+    final venues = recommendation?['venues'] as List<dynamic>?;
+    if (venues == null) return const {};
+    final result = <String, String>{};
+    for (final v in venues) {
+      if (v is Map<String, dynamic>) {
+        final placeId = v['place_id'] as String?;
+        final name = v['name'] as String?;
+        if (placeId != null && name != null) result[placeId] = name;
+      }
+    }
+    return result;
   }
 
   static VenueEntity _parseConfirmedVenue(Map<String, dynamic> json) {
     final placeId = json['google_place_id'] as String? ?? '';
     return VenueEntity(
-      placeId:       placeId,
-      name:          json['name'] as String? ?? '',
-      address:       json['address'] as String? ?? '',
-      lat:           (json['latitude'] as num?)?.toDouble() ?? 0.0,
-      lng:           (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      type:          '',
-      rating:        (json['google_rating'] as num?)?.toDouble(),
-      isHalal:       json['is_halal'] as bool?,
+      placeId:         placeId,
+      name:            json['name'] as String? ?? '',
+      address:         json['address'] as String? ?? '',
+      lat:             (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      lng:             (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      type:            '',
+      rating:          (json['google_rating'] as num?)?.toDouble(),
+      isHalal:         json['is_halal'] as bool?,
       isHalalVerified: json['is_halal_verified'] as bool? ?? false,
-      distanceMeters: 0,
-      googleMapsUrl: 'https://www.google.com/maps/place/?q=place_id:$placeId',
-      source:        'confirmed',
+      distanceMeters:  0,
+      googleMapsUrl:   'https://www.google.com/maps/place/?q=place_id:$placeId',
+      source:          'confirmed',
     );
   }
 }

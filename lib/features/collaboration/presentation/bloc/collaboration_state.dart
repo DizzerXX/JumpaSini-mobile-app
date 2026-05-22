@@ -55,6 +55,15 @@ class SessionSummaryLoaded extends CollaborationState {
   List<Object?> get props => [summary];
 }
 
+class VotingStarted extends CollaborationState {
+  final SessionSummaryEntity summary;
+
+  const VotingStarted(this.summary);
+
+  @override
+  List<Object?> get props => [summary];
+}
+
 class CollaborationError extends CollaborationState {
   final String message;
 

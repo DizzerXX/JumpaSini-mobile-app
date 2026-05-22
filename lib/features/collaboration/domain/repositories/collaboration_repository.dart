@@ -25,4 +25,6 @@ abstract class CollaborationRepository {
   Future<Either<Failure, SessionSummaryEntity>> getSessionSummary(
     String shortCode,
   );
+
+  Future<Either<Failure, SessionSummaryEntity>> startVoting(String shortCode);
 }

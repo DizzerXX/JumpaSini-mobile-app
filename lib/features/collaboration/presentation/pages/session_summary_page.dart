@@ -16,6 +16,8 @@ import '../bloc/collaboration_event.dart';
 import '../bloc/collaboration_state.dart';
 import '../widgets/confirmed_venue_card.dart';
 import '../widgets/vote_tally.dart';
+import '../widgets/voting_timer.dart';
+import '../widgets/voting_winner_banner.dart';
 
 class SessionSummaryPage extends StatelessWidget {
   final String shortCode;
@@ -32,7 +34,7 @@ class SessionSummaryPage extends StatelessWidget {
   }
 }
 
-// ── Stateful view — owns polling timer and recalculating state ────────────────
+// ── Stateful view — owns poll timer and UI transition state ───────────────────
 
 class _SessionSummaryView extends StatefulWidget {
   final String shortCode;
@@ -48,11 +50,25 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
   Timer? _recalculatingTimer;
   int _previousParticipantCount = 0;
   bool _isRecalculating = false;
+  bool _votingActive = false;
+  bool _isConfirmingVote = false;
 
   @override
   void initState() {
     super.initState();
-    _pollTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _startPolling(seconds: 10);
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _recalculatingTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPolling({required int seconds}) {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(Duration(seconds: seconds), (_) {
       if (mounted) {
         context.read<CollaborationBloc>().add(
               GetSessionSummaryEvent(widget.shortCode, silent: true),
@@ -61,11 +77,19 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
     });
   }
 
-  @override
-  void dispose() {
-    _pollTimer?.cancel();
-    _recalculatingTimer?.cancel();
-    super.dispose();
+  void _onVotingExpired() {
+    if (!mounted) return;
+    setState(() => _isConfirmingVote = true);
+    // Reload quickly while showing "Confirming..." banner
+    _startPolling(seconds: 3);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (!mounted) return;
+      setState(() => _isConfirmingVote = false);
+      _startPolling(seconds: 10);
+      context.read<CollaborationBloc>().add(
+            GetSessionSummaryEvent(widget.shortCode),
+          );
+    });
   }
 
   void _share(SessionSummaryEntity summary) {
@@ -104,8 +128,13 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
               ),
             );
           }
-          if (state is SessionSummaryLoaded) {
-            final newCount = state.summary.participants.length;
+
+          SessionSummaryEntity? latestSummary;
+          if (state is SessionSummaryLoaded) latestSummary = state.summary;
+          if (state is VotingStarted) latestSummary = state.summary;
+
+          if (latestSummary != null) {
+            final newCount = latestSummary.participants.length;
             if (newCount > _previousParticipantCount &&
                 _previousParticipantCount > 0) {
               setState(() => _isRecalculating = true);
@@ -115,6 +144,14 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
               });
             }
             _previousParticipantCount = newCount;
+
+            final nowActive = latestSummary.votingState?.active ?? false;
+            if (nowActive && !_votingActive) {
+              _startPolling(seconds: 5);
+            } else if (!nowActive && _votingActive && !_isConfirmingVote) {
+              _startPolling(seconds: 10);
+            }
+            setState(() => _votingActive = nowActive);
           }
         },
         builder: (context, state) {
@@ -133,13 +170,22 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
             );
           }
 
-          if (state is SessionSummaryLoaded) {
+          SessionSummaryEntity? activeSummary;
+          if (state is SessionSummaryLoaded) activeSummary = state.summary;
+          if (state is VotingStarted) activeSummary = state.summary;
+
+          if (activeSummary != null) {
             return _SummaryBody(
-              summary: state.summary,
+              summary: activeSummary,
               shortCode: widget.shortCode,
               isRecalculating: _isRecalculating,
-              onShare: () => _share(state.summary),
+              isConfirmingVote: _isConfirmingVote,
+              onShare: () => _share(activeSummary!),
               onCopyCode: () => _copyCode(context),
+              onStartVoting: () => context
+                  .read<CollaborationBloc>()
+                  .add(StartVotingEvent(widget.shortCode)),
+              onVotingExpired: _onVotingExpired,
             );
           }
 
@@ -154,15 +200,21 @@ class _SummaryBody extends StatelessWidget {
   final SessionSummaryEntity summary;
   final String shortCode;
   final bool isRecalculating;
+  final bool isConfirmingVote;
   final VoidCallback onShare;
   final VoidCallback onCopyCode;
+  final VoidCallback onStartVoting;
+  final VoidCallback onVotingExpired;
 
   const _SummaryBody({
     required this.summary,
     required this.shortCode,
     required this.isRecalculating,
+    required this.isConfirmingVote,
     required this.onShare,
     required this.onCopyCode,
+    required this.onStartVoting,
+    required this.onVotingExpired,
   });
 
   @override
@@ -174,8 +226,11 @@ class _SummaryBody extends StatelessWidget {
       summary: summary,
       shortCode: shortCode,
       isRecalculating: isRecalculating,
+      isConfirmingVote: isConfirmingVote,
       onShare: onShare,
       onCopyCode: onCopyCode,
+      onStartVoting: onStartVoting,
+      onVotingExpired: onVotingExpired,
     );
   }
 }
@@ -186,21 +241,41 @@ class _InProgressBody extends StatelessWidget {
   final SessionSummaryEntity summary;
   final String shortCode;
   final bool isRecalculating;
+  final bool isConfirmingVote;
   final VoidCallback onShare;
   final VoidCallback onCopyCode;
+  final VoidCallback onStartVoting;
+  final VoidCallback onVotingExpired;
 
   const _InProgressBody({
     required this.summary,
     required this.shortCode,
     required this.isRecalculating,
+    required this.isConfirmingVote,
     required this.onShare,
     required this.onCopyCode,
+    required this.onStartVoting,
+    required this.onVotingExpired,
   });
+
+  bool get _isVotingActive => summary.votingState?.active ?? false;
+
+  bool get _votingNeverStarted =>
+      summary.votingState == null ||
+      summary.votingState?.endsAt == null;
+
+  bool get _hasMidpoint => summary.midpointLat != null;
+
+  bool get _isWaiting => summary.participants.length == 1;
+
+  bool get _showStartVoting =>
+      _hasMidpoint &&
+      !_isWaiting &&
+      !_isVotingActive &&
+      _votingNeverStarted;
 
   @override
   Widget build(BuildContext context) {
-    final isWaiting = summary.participants.length == 1;
-
     return RefreshIndicator(
       onRefresh: () async => context
           .read<CollaborationBloc>()
@@ -208,7 +283,24 @@ class _InProgressBody extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (isRecalculating) ...[
+          // Top banner: confirming > voting timer > recalculating (priority order)
+          if (isConfirmingVote) ...[
+            _ConfirmingBanner(),
+            const SizedBox(height: 12),
+          ] else if (_isVotingActive &&
+              summary.votingState?.endsAt != null) ...[
+            VotingTimer(
+              endsAt: summary.votingState!.endsAt!,
+              onExpired: onVotingExpired,
+            ),
+            const SizedBox(height: 12),
+            VotingWinnerBanner(
+              winningPlaceId: summary.votingState!.winningVenue,
+              voteSummary: summary.voteSummary,
+              venueNames: summary.venueNames,
+            ),
+            const SizedBox(height: 12),
+          ] else if (isRecalculating) ...[
             _RecalculatingBanner(),
             const SizedBox(height: 12),
           ],
@@ -220,15 +312,54 @@ class _InProgressBody extends StatelessWidget {
           const SizedBox(height: 20),
           _ParticipantList(participants: summary.participants),
           const SizedBox(height: 20),
-          if (isWaiting) ...[
+          if (_isWaiting) ...[
             _WaitingCard(),
             const SizedBox(height: 20),
           ] else ...[
             _VoteSection(summary: summary),
             const SizedBox(height: 20),
+            if (_showStartVoting) ...[
+              _StartVotingButton(onStartVoting: onStartVoting),
+              const SizedBox(height: 12),
+            ],
             _ConfirmButton(summary: summary, shortCode: shortCode),
             const SizedBox(height: 32),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ConfirmingBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.green.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green.shade300),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.green.shade700,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Confirming your meetup spot...',
+            style: TextStyle(
+              color: Colors.green.shade800,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -270,6 +401,46 @@ class _RecalculatingBanner extends StatelessWidget {
   }
 }
 
+class _StartVotingButton extends StatelessWidget {
+  final VoidCallback onStartVoting;
+
+  const _StartVotingButton({required this.onStartVoting});
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<CollaborationBloc, CollaborationState>(
+      builder: (context, state) {
+        final loading = state is CollaborationLoading;
+        return SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: loading ? null : onStartVoting,
+            icon: loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.timer_outlined),
+            label: const Text('Start Voting (5 min)'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _WaitingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -284,7 +455,11 @@ class _WaitingCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Icon(Icons.people_outline, size: 52, color: AppColors.primary.withValues(alpha: 0.6)),
+          Icon(
+            Icons.people_outline,
+            size: 52,
+            color: AppColors.primary.withValues(alpha: 0.6),
+          ),
           const SizedBox(height: 14),
           const Text(
             AppStrings.waitingForOthers,
@@ -298,19 +473,13 @@ class _WaitingCard extends StatelessWidget {
           const SizedBox(height: 8),
           const Text(
             'Share the session code above so friends can join from their device.',
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           const Text(
             'The best meetup spot will be calculated automatically as people join.',
-            style: TextStyle(
-              color: Colors.black38,
-              fontSize: 12,
-            ),
+            style: TextStyle(color: Colors.black38, fontSize: 12),
             textAlign: TextAlign.center,
           ),
         ],
@@ -416,7 +585,8 @@ class _ParticipantList extends StatelessWidget {
               children: [
                 const Icon(Icons.person, size: 16, color: Colors.black45),
                 const SizedBox(width: 8),
-                Text(p.name ?? 'Anonymous', style: const TextStyle(fontSize: 14)),
+                Text(p.name ?? 'Anonymous',
+                    style: const TextStyle(fontSize: 14)),
               ],
             ),
           ),
@@ -536,7 +706,8 @@ class _CompletedBody extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     children: [
-                      const Icon(Icons.person, size: 16, color: Colors.black45),
+                      const Icon(Icons.person,
+                          size: 16, color: Colors.black45),
                       const SizedBox(width: 8),
                       Text(
                         p.name ?? 'Anonymous',

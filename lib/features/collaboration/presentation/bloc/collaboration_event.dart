@@ -54,3 +54,12 @@ class GetSessionSummaryEvent extends CollaborationEvent {
   @override
   List<Object?> get props => [shortCode];
 }
+
+class StartVotingEvent extends CollaborationEvent {
+  final String shortCode;
+
+  const StartVotingEvent(this.shortCode);
+
+  @override
+  List<Object?> get props => [shortCode];
+}
