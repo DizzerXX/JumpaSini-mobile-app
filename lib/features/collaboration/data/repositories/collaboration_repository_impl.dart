@@ -104,4 +104,18 @@ class CollaborationRepositoryImpl implements CollaborationRepository {
       return Left(ServerFailure(e.message, statusCode: e.statusCode));
     }
   }
+
+  @override
+  Future<Either<Failure, Unit>> triggerMidpoint(String shortCode) async {
+    try {
+      await _datasource.triggerMidpoint(shortCode);
+      return const Right(unit);
+    } on NotFoundException catch (e) {
+      return Left(NotFoundFailure(e.message));
+    } on NetworkException catch (e) {
+      return Left(NetworkFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message, statusCode: e.statusCode));
+    }
+  }
 }

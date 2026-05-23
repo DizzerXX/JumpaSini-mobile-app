@@ -63,3 +63,12 @@ class StartVotingEvent extends CollaborationEvent {
   @override
   List<Object?> get props => [shortCode];
 }
+
+class TriggerMidpointEvent extends CollaborationEvent {
+  final String shortCode;
+
+  const TriggerMidpointEvent(this.shortCode);
+
+  @override
+  List<Object?> get props => [shortCode];
+}

@@ -9,6 +9,7 @@ import '../../features/collaboration/domain/usecases/confirm_venue.dart';
 import '../../features/collaboration/domain/usecases/get_session_summary.dart';
 import '../../features/collaboration/domain/usecases/get_votes.dart';
 import '../../features/collaboration/domain/usecases/start_voting.dart';
+import '../../features/collaboration/domain/usecases/trigger_midpoint.dart';
 import '../../features/collaboration/presentation/bloc/collaboration_bloc.dart';
 import '../../features/session/data/datasources/session_remote_datasource.dart';
 import '../../features/session/data/repositories/session_repository_impl.dart';
@@ -66,6 +67,7 @@ void setup() {
   sl.registerLazySingleton(() => ConfirmVenue(sl()));
   sl.registerLazySingleton(() => GetSessionSummary(sl()));
   sl.registerLazySingleton(() => StartVoting(sl()));
+  sl.registerLazySingleton(() => TriggerMidpoint(sl()));
   sl.registerFactory(
     () => CollaborationBloc(
       castVote:          sl(),
@@ -73,6 +75,7 @@ void setup() {
       confirmVenue:      sl(),
       getSessionSummary: sl(),
       startVoting:       sl(),
+      triggerMidpoint:   sl(),
     ),
   );
 

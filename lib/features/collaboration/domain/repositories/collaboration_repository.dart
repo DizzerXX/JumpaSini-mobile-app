@@ -27,4 +27,6 @@ abstract class CollaborationRepository {
   );
 
   Future<Either<Failure, SessionSummaryEntity>> startVoting(String shortCode);
+
+  Future<Either<Failure, Unit>> triggerMidpoint(String shortCode);
 }

@@ -52,12 +52,16 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
   Timer? _pollTimer;
   Timer? _recalculatingTimer;
   Timer? _loadingTimer;
+  Timer? _retryButtonTimer;
+  Timer? _manualMidpointTimer;
   int _previousParticipantCount = 0;
   bool _isRecalculating = false;
-  bool _votingActive = false;
   bool _isConfirmingVote = false;
   bool _isSlowLoad = false;
+  bool _showRetryButton = false;
+  bool _showManualMidpoint = false;
   bool _hasLoaded = false;
+  int _currentPollSeconds = 10;
 
   @override
   void initState() {
@@ -70,6 +74,8 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
     _pollTimer?.cancel();
     _recalculatingTimer?.cancel();
     _loadingTimer?.cancel();
+    _retryButtonTimer?.cancel();
+    _manualMidpointTimer?.cancel();
     super.dispose();
   }
 
@@ -84,14 +90,21 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
     });
   }
 
+  int _targetPollSeconds(SessionSummaryEntity summary) {
+    if (summary.votingState?.active ?? false) return 5;
+    if (summary.midpointLat == null) return 5;
+    return 10;
+  }
+
   void _onVotingExpired() {
     if (!mounted) return;
     setState(() => _isConfirmingVote = true);
-    // Reload quickly while showing "Confirming..." banner
+    _currentPollSeconds = 3;
     _startPolling(seconds: 3);
     Future.delayed(const Duration(seconds: 2), () {
       if (!mounted) return;
       setState(() => _isConfirmingVote = false);
+      _currentPollSeconds = 10;
       _startPolling(seconds: 10);
       context.read<CollaborationBloc>().add(
             GetSessionSummaryEvent(widget.shortCode),
@@ -128,10 +141,22 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
       body: BlocConsumer<CollaborationBloc, CollaborationState>(
         listener: (context, state) {
           if (state is CollaborationLoading && !_hasLoaded) {
-            setState(() => _isSlowLoad = false);
+            setState(() {
+              _isSlowLoad = false;
+              _showRetryButton = false;
+              _showManualMidpoint = false;
+            });
             _loadingTimer?.cancel();
+            _retryButtonTimer?.cancel();
+            _manualMidpointTimer?.cancel();
             _loadingTimer = Timer(const Duration(seconds: 15), () {
               if (mounted) setState(() => _isSlowLoad = true);
+            });
+            _retryButtonTimer = Timer(const Duration(seconds: 20), () {
+              if (mounted) setState(() => _showRetryButton = true);
+            });
+            _manualMidpointTimer = Timer(const Duration(seconds: 30), () {
+              if (mounted) setState(() => _showManualMidpoint = true);
             });
           }
 
@@ -153,7 +178,13 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
             if (!_hasLoaded) {
               _hasLoaded = true;
               _loadingTimer?.cancel();
-              if (_isSlowLoad) setState(() => _isSlowLoad = false);
+              _retryButtonTimer?.cancel();
+              _manualMidpointTimer?.cancel();
+              setState(() {
+                _isSlowLoad = false;
+                _showRetryButton = false;
+                _showManualMidpoint = false;
+              });
             }
 
             final newCount = latestSummary.participants.length;
@@ -167,22 +198,30 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
             }
             _previousParticipantCount = newCount;
 
-            final nowActive = latestSummary.votingState?.active ?? false;
-            if (nowActive && !_votingActive) {
-              _startPolling(seconds: 5);
-            } else if (!nowActive && _votingActive && !_isConfirmingVote) {
-              _startPolling(seconds: 10);
+            if (!_isConfirmingVote) {
+              final target = _targetPollSeconds(latestSummary);
+              if (target != _currentPollSeconds) {
+                _currentPollSeconds = target;
+                _startPolling(seconds: target);
+              }
             }
-            setState(() => _votingActive = nowActive);
           }
         },
         builder: (context, state) {
           if (state is CollaborationLoading || state is CollaborationInitial) {
             return _LoadingBody(
               isSlowLoad: _isSlowLoad,
+              showRetryButton: _showRetryButton,
+              showManualMidpoint: _showManualMidpoint,
               onRefresh: () async => context
                   .read<CollaborationBloc>()
                   .add(GetSessionSummaryEvent(widget.shortCode)),
+              onRetryNow: () => context
+                  .read<CollaborationBloc>()
+                  .add(GetSessionSummaryEvent(widget.shortCode)),
+              onManualMidpoint: () => context
+                  .read<CollaborationBloc>()
+                  .add(TriggerMidpointEvent(widget.shortCode)),
             );
           }
 
@@ -973,9 +1012,20 @@ class _CompletedBody extends StatelessWidget {
 
 class _LoadingBody extends StatelessWidget {
   final bool isSlowLoad;
+  final bool showRetryButton;
+  final bool showManualMidpoint;
   final Future<void> Function() onRefresh;
+  final VoidCallback onRetryNow;
+  final VoidCallback onManualMidpoint;
 
-  const _LoadingBody({required this.isSlowLoad, required this.onRefresh});
+  const _LoadingBody({
+    required this.isSlowLoad,
+    required this.showRetryButton,
+    required this.showManualMidpoint,
+    required this.onRefresh,
+    required this.onRetryNow,
+    required this.onManualMidpoint,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1016,6 +1066,48 @@ class _LoadingBody extends StatelessWidget {
                     const Text(
                       'Pull down to refresh',
                       style: TextStyle(color: Colors.black38, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                  if (showRetryButton) ...[
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: onRetryNow,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry Now'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.primary,
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (showManualMidpoint) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: onManualMidpoint,
+                        icon: const Icon(Icons.calculate_outlined),
+                        label: const Text('Calculate manually'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.orange.shade700,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Triggers midpoint calculation directly',
+                      style: TextStyle(color: Colors.black38, fontSize: 11),
                       textAlign: TextAlign.center,
                     ),
                   ],

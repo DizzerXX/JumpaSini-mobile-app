@@ -24,6 +24,8 @@ abstract class CollaborationRemoteDatasource {
   Future<SessionSummaryEntity> getSessionSummary(String shortCode);
 
   Future<SessionSummaryEntity> startVoting(String shortCode);
+
+  Future<void> triggerMidpoint(String shortCode);
 }
 
 class CollaborationRemoteDatasourceImpl
@@ -103,6 +105,17 @@ class CollaborationRemoteDatasourceImpl
         ApiConstants.votingStart(shortCode),
       );
       return SessionSummaryModel.fromJson(response.data!);
+    } on DioException catch (e) {
+      _rethrowMapped(e);
+    }
+  }
+
+  @override
+  Future<void> triggerMidpoint(String shortCode) async {
+    try {
+      await _client.dio.post<Map<String, dynamic>>(
+        ApiConstants.midpoint(shortCode),
+      );
     } on DioException catch (e) {
       _rethrowMapped(e);
     }
