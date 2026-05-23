@@ -1,5 +1,6 @@
 import '../../../../features/session/data/models/participant_model.dart';
 import '../../../../features/session/data/models/session_model.dart';
+import '../../../../features/venue/data/models/venue_model.dart';
 import '../../../../features/venue/domain/entities/venue_entity.dart';
 import '../../domain/entities/session_summary_entity.dart';
 import '../../domain/entities/voting_state_entity.dart';
@@ -15,6 +16,7 @@ class SessionSummaryModel extends SessionSummaryEntity {
     super.voteSummary,
     super.votingState,
     super.venueNames,
+    super.bestVenue,
     required super.isComplete,
     required super.expiresAt,
   });
@@ -47,6 +49,7 @@ class SessionSummaryModel extends SessionSummaryEntity {
 
     final recommendationJson = data['recommendation'] as Map<String, dynamic>?;
     final venueNames = _parseVenueNames(recommendationJson);
+    final bestVenue = _parseBestVenue(recommendationJson);
 
     final isComplete = data['is_complete'] as bool? ?? false;
     final expiresAt = data['expires_at'] != null
@@ -62,6 +65,7 @@ class SessionSummaryModel extends SessionSummaryEntity {
       voteSummary:   voteSummary,
       votingState:   votingState,
       venueNames:    venueNames,
+      bestVenue:     bestVenue,
       isComplete:    isComplete,
       expiresAt:     expiresAt,
     );
@@ -77,6 +81,16 @@ class SessionSummaryModel extends SessionSummaryEntity {
       winningVenue:         json['winning_venue'] as String?,
       votingConfirmedVenue: json['voting_confirmed_venue'] as String?,
     );
+  }
+
+  static VenueEntity? _parseBestVenue(Map<String, dynamic>? recommendation) {
+    final bestVenueJson = recommendation?['best_venue'] as Map<String, dynamic>?;
+    if (bestVenueJson == null) return null;
+    try {
+      return VenueModel.fromJson(bestVenueJson);
+    } catch (_) {
+      return null;
+    }
   }
 
   static Map<String, String> _parseVenueNames(

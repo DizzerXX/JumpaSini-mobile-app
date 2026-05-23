@@ -15,6 +15,7 @@ class SessionSummaryEntity extends Equatable {
   final Map<String, VoteSummaryEntity> voteSummary;
   final VotingStateEntity? votingState;
   final Map<String, String> venueNames;
+  final VenueEntity? bestVenue;
   final bool isComplete;
   final DateTime expiresAt;
 
@@ -27,6 +28,7 @@ class SessionSummaryEntity extends Equatable {
     this.voteSummary = const {},
     this.votingState,
     this.venueNames = const {},
+    this.bestVenue,
     required this.isComplete,
     required this.expiresAt,
   });
@@ -41,6 +43,7 @@ class SessionSummaryEntity extends Equatable {
         voteSummary,
         votingState,
         venueNames,
+        bestVenue,
         isComplete,
         expiresAt,
       ];

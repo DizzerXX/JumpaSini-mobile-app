@@ -14,8 +14,11 @@ import '../../domain/entities/session_summary_entity.dart';
 import '../bloc/collaboration_bloc.dart';
 import '../bloc/collaboration_event.dart';
 import '../bloc/collaboration_state.dart';
+import '../../../session/domain/entities/participant_entity.dart';
+import '../../../venue/presentation/pages/venues_page.dart';
+import '../../../venue/presentation/widgets/best_pick_banner.dart';
 import '../widgets/confirmed_venue_card.dart';
-import '../widgets/vote_tally.dart';
+import '../widgets/vote_buttons.dart';
 import '../widgets/voting_timer.dart';
 import '../widgets/voting_winner_banner.dart';
 
@@ -274,6 +277,10 @@ class _InProgressBody extends StatelessWidget {
       !_isVotingActive &&
       _votingNeverStarted;
 
+  Map<String, String> get _participantNames => {
+        for (final p in summary.participants) p.id: p.name ?? 'Anonymous',
+      };
+
   @override
   Widget build(BuildContext context) {
     return RefreshIndicator(
@@ -283,7 +290,7 @@ class _InProgressBody extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Top banner: confirming > voting timer > recalculating (priority order)
+          // Priority banners: confirming > voting timer > recalculating
           if (isConfirmingVote) ...[
             _ConfirmingBanner(),
             const SizedBox(height: 12),
@@ -304,25 +311,38 @@ class _InProgressBody extends StatelessWidget {
             _RecalculatingBanner(),
             const SizedBox(height: 12),
           ],
-          _CodeCard(
-            shortCode: shortCode,
-            onCopy: onCopyCode,
-            onShare: onShare,
-          ),
-          const SizedBox(height: 20),
+
+          _CodeCard(shortCode: shortCode, onCopy: onCopyCode, onShare: onShare),
+          const SizedBox(height: 16),
           _ParticipantList(participants: summary.participants),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+
           if (_isWaiting) ...[
+            // ── Waiting layout (1 participant) ──────────────────────────────
             _WaitingCard(),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
+            _SingleParticipantCard(participant: summary.participants.first),
+            const SizedBox(height: 32),
           ] else ...[
-            _VoteSection(summary: summary),
-            const SizedBox(height: 20),
+            // ── Active layout (2+ participants / midpoint calculated) ────────
+            if (summary.bestVenue != null) ...[
+              BestPickBanner(
+                venue: summary.bestVenue!,
+                participantNames: _participantNames,
+              ),
+              const SizedBox(height: 12),
+            ],
+            _CompactVenueList(summary: summary, shortCode: shortCode),
+            const SizedBox(height: 12),
             if (_showStartVoting) ...[
               _StartVotingButton(onStartVoting: onStartVoting),
               const SizedBox(height: 12),
             ],
-            _ConfirmButton(summary: summary, shortCode: shortCode),
+            if (!_isVotingActive)
+              _ConfirmButton(summary: summary, shortCode: shortCode),
+            const SizedBox(height: 12),
+            if (_hasMidpoint)
+              _SeeAllVenuesButton(summary: summary, shortCode: shortCode),
             const SizedBox(height: 32),
           ],
         ],
@@ -596,24 +616,117 @@ class _ParticipantList extends StatelessWidget {
   }
 }
 
-class _VoteSection extends StatelessWidget {
+class _CompactVenueList extends StatelessWidget {
   final SessionSummaryEntity summary;
+  final String shortCode;
 
-  const _VoteSection({required this.summary});
+  const _CompactVenueList({required this.summary, required this.shortCode});
+
+  List<({String placeId, String name})> get _topVenues {
+    final venues = <({String placeId, String name})>[];
+
+    // Best venue always first
+    if (summary.bestVenue != null) {
+      venues.add((placeId: summary.bestVenue!.placeId, name: summary.bestVenue!.name));
+    }
+
+    // Top voted venues (exclude best venue to avoid duplication)
+    final sorted = summary.voteSummary.values.toList()
+      ..sort((a, b) => b.upVotes.compareTo(a.upVotes));
+    for (final v in sorted) {
+      if (venues.length >= 3) break;
+      if (venues.any((e) => e.placeId == v.placeId)) continue;
+      venues.add((
+        placeId: v.placeId,
+        name: summary.venueNames[v.placeId] ?? v.placeId,
+      ));
+    }
+
+    return venues;
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (summary.voteSummary.isEmpty) return const SizedBox.shrink();
+    final venues = _topVenues;
+    if (venues.isEmpty) return const SizedBox.shrink();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Vote Tally',
+          'Top Spots',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
         ),
-        const SizedBox(height: 12),
-        VoteTally(voteSummary: summary.voteSummary),
+        const SizedBox(height: 8),
+        ...venues.map((v) {
+          final voteData = summary.voteSummary[v.placeId];
+          return _VenueRow(
+            placeId: v.placeId,
+            name: v.name,
+            upCount: voteData?.upVotes ?? 0,
+            downCount: voteData?.downVotes ?? 0,
+            myVote: voteData?.myVote,
+            shortCode: shortCode,
+          );
+        }),
       ],
+    );
+  }
+}
+
+class _VenueRow extends StatelessWidget {
+  final String placeId;
+  final String name;
+  final int upCount;
+  final int downCount;
+  final String? myVote;
+  final String shortCode;
+
+  const _VenueRow({
+    required this.placeId,
+    required this.name,
+    required this.upCount,
+    required this.downCount,
+    required this.shortCode,
+    this.myVote,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Color(0x0D000000), blurRadius: 4)],
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          VoteButtons(
+            placeId: placeId,
+            venueName: name,
+            upCount: upCount,
+            downCount: downCount,
+            currentVote: myVote,
+            onVote: (vote) => context.read<CollaborationBloc>().add(
+                  CastVoteEvent(
+                    shortCode: shortCode,
+                    placeId: placeId,
+                    venueName: name,
+                    vote: vote,
+                  ),
+                ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -624,16 +737,18 @@ class _ConfirmButton extends StatelessWidget {
 
   const _ConfirmButton({required this.summary, required this.shortCode});
 
-  String? get _topVenuePlaceId {
-    if (summary.voteSummary.isEmpty) return null;
-    return summary.voteSummary.values
-        .reduce((a, b) => a.upVotes >= b.upVotes ? a : b)
-        .placeId;
+  String? get _placeId {
+    if (summary.voteSummary.isNotEmpty) {
+      return summary.voteSummary.values
+          .reduce((a, b) => a.upVotes >= b.upVotes ? a : b)
+          .placeId;
+    }
+    return summary.bestVenue?.placeId;
   }
 
   @override
   Widget build(BuildContext context) {
-    final placeId = _topVenuePlaceId;
+    final placeId = _placeId;
     if (placeId == null) return const SizedBox.shrink();
 
     return SizedBox(
@@ -648,10 +763,99 @@ class _ConfirmButton extends StatelessWidget {
           backgroundColor: Colors.green,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+}
+
+class _SeeAllVenuesButton extends StatelessWidget {
+  final SessionSummaryEntity summary;
+  final String shortCode;
+
+  const _SeeAllVenuesButton({required this.summary, required this.shortCode});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => VenuesPage(
+              shortCode: shortCode,
+              midpointLat: summary.midpointLat!,
+              midpointLng: summary.midpointLng!,
+              participantNames: {
+                for (final p in summary.participants)
+                  p.id: p.name ?? 'Anonymous',
+              },
+            ),
           ),
         ),
+        icon: const Icon(Icons.explore_outlined),
+        label: const Text('See All Venues'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
+  }
+}
+
+class _SingleParticipantCard extends StatelessWidget {
+  final ParticipantEntity participant;
+
+  const _SingleParticipantCard({required this.participant});
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = (participant.name ?? 'A')[0].toUpperCase();
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Color(0x1A000000), blurRadius: 8)],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.primary.withValues(alpha: 0.12),
+            child: Text(
+              initial,
+              style: const TextStyle(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  participant.name ?? 'Anonymous',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  participant.address,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
