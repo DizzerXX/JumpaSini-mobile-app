@@ -22,8 +22,10 @@ class VenueModel extends VenueEntity {
   });
 
   factory VenueModel.fromJson(Map<String, dynamic> json) {
-    final rawTravelTimes =
-        json['travel_times'] as Map<String, dynamic>? ?? {};
+    final rawTravelTimesJson = json['travel_times'];
+    final rawTravelTimes = rawTravelTimesJson is Map<String, dynamic>
+        ? rawTravelTimesJson
+        : <String, dynamic>{};
     final travelTimes = rawTravelTimes.map(
       (key, value) {
         final entry = value as Map<String, dynamic>;

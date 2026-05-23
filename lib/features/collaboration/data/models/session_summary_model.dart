@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../../features/session/data/models/participant_model.dart';
 import '../../../../features/session/data/models/session_model.dart';
 import '../../../../features/venue/data/models/venue_model.dart';
@@ -40,7 +42,10 @@ class SessionSummaryModel extends SessionSummaryEntity {
     final confirmedVenue =
         confirmedJson != null ? _parseConfirmedVenue(confirmedJson) : null;
 
-    final rawVotes = data['vote_summary'] as Map<String, dynamic>? ?? {};
+    final rawVotesJson = data['vote_summary'];
+    final rawVotes = rawVotesJson is Map<String, dynamic>
+        ? rawVotesJson
+        : <String, dynamic>{};
     final voteSummary = VoteSummaryModel.mapFromJson(rawVotes);
 
     final votingStateJson = data['voting_state'] as Map<String, dynamic>?;
@@ -88,7 +93,9 @@ class SessionSummaryModel extends SessionSummaryEntity {
     if (bestVenueJson == null) return null;
     try {
       return VenueModel.fromJson(bestVenueJson);
-    } catch (_) {
+    } catch (e, stack) {
+      debugPrint('_parseBestVenue error: $e');
+      debugPrint('Stack: $stack');
       return null;
     }
   }
@@ -96,16 +103,16 @@ class SessionSummaryModel extends SessionSummaryEntity {
   static Map<String, String> _parseVenueNames(
     Map<String, dynamic>? recommendation,
   ) {
-    final venues = recommendation?['venues'] as List<dynamic>?;
-    if (venues == null) return const {};
+    if (recommendation == null) return const {};
     final result = <String, String>{};
-    for (final v in venues) {
-      if (v is Map<String, dynamic>) {
-        final placeId = v['place_id'] as String?;
-        final name = v['name'] as String?;
-        if (placeId != null && name != null) result[placeId] = name;
-      }
+
+    final bestVenue = recommendation['best_venue'] as Map<String, dynamic>?;
+    if (bestVenue != null) {
+      final placeId = bestVenue['place_id'] as String?;
+      final name = bestVenue['name'] as String?;
+      if (placeId != null && name != null) result[placeId] = name;
     }
+
     return result;
   }
 
