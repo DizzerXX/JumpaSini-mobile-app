@@ -17,8 +17,13 @@ import '../../../collaboration/presentation/pages/session_summary_page.dart';
 
 class AddParticipantsPage extends StatefulWidget {
   final SessionEntity session;
+  final bool isJoining;
 
-  const AddParticipantsPage({super.key, required this.session});
+  const AddParticipantsPage({
+    super.key,
+    required this.session,
+    this.isJoining = false,
+  });
 
   @override
   State<AddParticipantsPage> createState() => _AddParticipantsPageState();
@@ -123,7 +128,9 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text(AppStrings.addParticipants),
+        title: Text(
+          widget.isJoining ? 'Joining existing session' : AppStrings.addParticipants,
+        ),
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -136,7 +143,9 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
               _selectedLocation = null;
               _nameController.clear();
             });
-            if (state.session.participants.length == 1) {
+            final shouldNavigate =
+                widget.isJoining || state.session.participants.length == 1;
+            if (shouldNavigate) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute<void>(
                   builder: (_) => SessionSummaryPage(
@@ -158,9 +167,14 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      AppStrings.addParticipantsSubtitle,
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    Text(
+                      widget.isJoining
+                          ? 'You\'re joining ${_session.participants.length} '
+                              '${_session.participants.length == 1 ? 'other' : 'others'}. '
+                              'Add your location to continue.'
+                          : AppStrings.addParticipantsSubtitle,
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 14),
                     ),
                     const SizedBox(height: 20),
                     if (_session.participants.isNotEmpty) ...[
@@ -280,7 +294,7 @@ class _AddParticipantsPageState extends State<AddParticipantsPage> {
                 ),
               ),
             ),
-            _BottomBar(session: _session),
+            if (!widget.isJoining) _BottomBar(session: _session),
           ],
         ),
       ),

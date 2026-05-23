@@ -5,10 +5,10 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/utils/permission_handler.dart';
 import '../../../../core/utils/validators.dart';
-import '../../../collaboration/presentation/pages/session_summary_page.dart';
 import '../bloc/session_bloc.dart';
 import '../widgets/location_permission_dialog.dart';
 import 'add_location_page.dart';
+import 'add_participants_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -62,8 +62,9 @@ class _HomePageState extends State<HomePage> {
           if (state is SessionLoaded) {
             Navigator.of(context).push(
               MaterialPageRoute<void>(
-                builder: (_) => SessionSummaryPage(
-                  shortCode: state.session.shortCode,
+                builder: (_) => AddParticipantsPage(
+                  session: state.session,
+                  isJoining: true,
                 ),
               ),
             );
