@@ -106,7 +106,8 @@ class SessionSummaryModel extends SessionSummaryEntity {
     if (recommendation == null) return const {};
     final result = <String, String>{};
 
-    final bestVenue = recommendation['best_venue'] as Map<String, dynamic>?;
+    final bestVenueRaw = recommendation['best_venue'];
+    final bestVenue = bestVenueRaw is Map<String, dynamic> ? bestVenueRaw : null;
     if (bestVenue != null) {
       final placeId = bestVenue['place_id'] as String?;
       final name = bestVenue['name'] as String?;
