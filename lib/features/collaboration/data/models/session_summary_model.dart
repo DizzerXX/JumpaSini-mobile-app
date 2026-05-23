@@ -108,7 +108,7 @@ class SessionSummaryModel extends SessionSummaryEntity {
       isHalal:         json['is_halal'] as bool?,
       isHalalVerified: json['is_halal_verified'] as bool? ?? false,
       distanceMeters:  0,
-      googleMapsUrl:   'https://www.google.com/maps/place/?q=place_id:$placeId',
+      googleMapsUrl:   'https://www.google.com/maps/search/?api=1&query=${(json['latitude'] as num?)?.toDouble() ?? 0.0},${(json['longitude'] as num?)?.toDouble() ?? 0.0}&query_place_id=$placeId',
       source:          'confirmed',
     );
   }
