@@ -51,10 +51,13 @@ class _SessionSummaryView extends StatefulWidget {
 class _SessionSummaryViewState extends State<_SessionSummaryView> {
   Timer? _pollTimer;
   Timer? _recalculatingTimer;
+  Timer? _loadingTimer;
   int _previousParticipantCount = 0;
   bool _isRecalculating = false;
   bool _votingActive = false;
   bool _isConfirmingVote = false;
+  bool _isSlowLoad = false;
+  bool _hasLoaded = false;
 
   @override
   void initState() {
@@ -66,6 +69,7 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
   void dispose() {
     _pollTimer?.cancel();
     _recalculatingTimer?.cancel();
+    _loadingTimer?.cancel();
     super.dispose();
   }
 
@@ -123,7 +127,16 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
       ),
       body: BlocConsumer<CollaborationBloc, CollaborationState>(
         listener: (context, state) {
+          if (state is CollaborationLoading && !_hasLoaded) {
+            setState(() => _isSlowLoad = false);
+            _loadingTimer?.cancel();
+            _loadingTimer = Timer(const Duration(seconds: 15), () {
+              if (mounted) setState(() => _isSlowLoad = true);
+            });
+          }
+
           if (state is CollaborationError) {
+            _loadingTimer?.cancel();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text(state.message),
@@ -137,6 +150,12 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
           if (state is VotingStarted) latestSummary = state.summary;
 
           if (latestSummary != null) {
+            if (!_hasLoaded) {
+              _hasLoaded = true;
+              _loadingTimer?.cancel();
+              if (_isSlowLoad) setState(() => _isSlowLoad = false);
+            }
+
             final newCount = latestSummary.participants.length;
             if (newCount > _previousParticipantCount &&
                 _previousParticipantCount > 0) {
@@ -159,8 +178,11 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
         },
         builder: (context, state) {
           if (state is CollaborationLoading || state is CollaborationInitial) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
+            return _LoadingBody(
+              isSlowLoad: _isSlowLoad,
+              onRefresh: () async => context
+                  .read<CollaborationBloc>()
+                  .add(GetSessionSummaryEvent(widget.shortCode)),
             );
           }
 
@@ -945,6 +967,64 @@ class _CompletedBody extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _LoadingBody extends StatelessWidget {
+  final bool isSlowLoad;
+  final Future<void> Function() onRefresh;
+
+  const _LoadingBody({required this.isSlowLoad, required this.onRefresh});
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(
+            height: MediaQuery.of(context).size.height * 0.65,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'Finding the best spot for everyone... 🗺️',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  const CircularProgressIndicator(color: AppColors.primary),
+                  if (isSlowLoad) ...[
+                    const SizedBox(height: 24),
+                    const Text(
+                      'This is taking longer than usual. Please wait...',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Pull down to refresh',
+                      style: TextStyle(color: Colors.black38, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
