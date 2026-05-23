@@ -33,7 +33,7 @@ class AppStrings {
   // Add participants page
   static const String addParticipants = 'Add Locations';
   static const String addParticipantsSubtitle =
-      'Add each person\'s starting location (max 6)';
+      'Add your location to start. Share the code for others to join.';
   static const String yourName = 'Your name (optional)';
   static const String searchLocation = 'Search location in KL/Selangor...';
   static const String useCurrentLocation = 'Use my current location';
