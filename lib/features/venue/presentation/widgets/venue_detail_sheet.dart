@@ -3,6 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/constants/app_colors.dart';
+import '../../../collaboration/presentation/bloc/collaboration_bloc.dart';
+import '../../../collaboration/presentation/bloc/collaboration_event.dart';
+import '../../../collaboration/presentation/bloc/collaboration_state.dart';
+import '../../../collaboration/presentation/widgets/vote_buttons.dart';
 import '../../domain/entities/venue_entity.dart';
 import '../bloc/venue_bloc.dart';
 import 'halal_badge.dart';
@@ -10,11 +14,13 @@ import 'halal_badge.dart';
 class VenueDetailSheet extends StatelessWidget {
   final VenueEntity venue;
   final String shortCode;
+  final bool showVoteButtons;
 
   const VenueDetailSheet({
     super.key,
     required this.venue,
     required this.shortCode,
+    this.showVoteButtons = false,
   });
 
   Future<void> _openDirections() async {
@@ -122,6 +128,43 @@ class VenueDetailSheet extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (showVoteButtons) ...[
+                    const SizedBox(height: 10),
+                    BlocBuilder<CollaborationBloc, CollaborationState>(
+                      builder: (context, state) {
+                        final voteSummary = switch (state) {
+                          VotesLoaded() => state.voteSummary,
+                          VoteCast() => state.voteSummary,
+                          SessionSummaryLoaded() =>
+                            state.summary.voteSummary,
+                          VotingStarted() => state.summary.voteSummary,
+                          _ => const {},
+                        };
+                        final voteData = voteSummary[venue.placeId];
+                        final currentVote = state is VoteCast &&
+                                state.voteSummary
+                                    .containsKey(venue.placeId)
+                            ? state.myVote
+                            : voteData?.myVote;
+                        return VoteButtons(
+                          placeId: venue.placeId,
+                          venueName: venue.name,
+                          upCount: voteData?.upVotes ?? 0,
+                          downCount: voteData?.downVotes ?? 0,
+                          currentVote: currentVote,
+                          onVote: (vote) =>
+                              context.read<CollaborationBloc>().add(
+                                    CastVoteEvent(
+                                      shortCode: shortCode,
+                                      placeId: venue.placeId,
+                                      venueName: venue.name,
+                                      vote: vote,
+                                    ),
+                                  ),
+                        );
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Row(
                     children: [

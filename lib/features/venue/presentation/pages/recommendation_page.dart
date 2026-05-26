@@ -241,17 +241,27 @@ class _RecommendationView extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: OutlinedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => VenuesPage(
-                      shortCode: shortCode,
-                      midpointLat: midpointLat,
-                      midpointLng: midpointLng,
-                      participantNames: names,
+                onPressed: () {
+                  final venueBloc = context.read<VenueBloc>();
+                  final collabBloc = context.read<CollaborationBloc>();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => MultiBlocProvider(
+                        providers: [
+                          BlocProvider.value(value: venueBloc),
+                          BlocProvider.value(value: collabBloc),
+                        ],
+                        child: VenuesPage(
+                          shortCode: shortCode,
+                          midpointLat: midpointLat,
+                          midpointLng: midpointLng,
+                          participantNames: names,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
                 icon: const Icon(Icons.map_outlined),
                 label: const Text('See All on Map'),
                 style: OutlinedButton.styleFrom(
@@ -327,16 +337,24 @@ class _CompactVenueCard extends StatelessWidget {
   });
 
   void _showDetail(BuildContext context) {
-    final bloc = context.read<VenueBloc>();
+    final venueBloc = context.read<VenueBloc>();
+    final collabBloc = context.read<CollaborationBloc>();
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => BlocProvider.value(
-        value: bloc,
-        child: VenueDetailSheet(venue: venue, shortCode: shortCode),
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: venueBloc),
+          BlocProvider.value(value: collabBloc),
+        ],
+        child: VenueDetailSheet(
+          venue: venue,
+          shortCode: shortCode,
+          showVoteButtons: true,
+        ),
       ),
     );
   }

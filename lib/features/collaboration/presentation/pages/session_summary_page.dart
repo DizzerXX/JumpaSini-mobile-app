@@ -15,6 +15,8 @@ import '../bloc/collaboration_bloc.dart';
 import '../bloc/collaboration_event.dart';
 import '../bloc/collaboration_state.dart';
 import '../../../session/domain/entities/participant_entity.dart';
+import '../../../venue/domain/entities/venue_entity.dart';
+import '../../../venue/presentation/bloc/venue_bloc.dart';
 import '../../../venue/presentation/pages/venues_page.dart';
 import '../../../venue/presentation/widgets/best_pick_banner.dart';
 import '../widgets/confirmed_venue_card.dart';
@@ -29,9 +31,16 @@ class SessionSummaryPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) =>
-          sl<CollaborationBloc>()..add(GetSessionSummaryEvent(shortCode)),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) =>
+              sl<CollaborationBloc>()..add(GetSessionSummaryEvent(shortCode)),
+        ),
+        BlocProvider(
+          create: (_) => sl<VenueBloc>(),
+        ),
+      ],
       child: _SessionSummaryView(shortCode: shortCode),
     );
   }
@@ -185,6 +194,14 @@ class _SessionSummaryViewState extends State<_SessionSummaryView> {
                 _showRetryButton = false;
                 _showManualMidpoint = false;
               });
+            }
+
+            if (latestSummary.midpointLat != null) {
+              final venueBloc = context.read<VenueBloc>();
+              if (venueBloc.state is! VenuesLoaded &&
+                  venueBloc.state is! VenueLoading) {
+                venueBloc.add(LoadVenuesEvent(widget.shortCode));
+              }
             }
 
             final newCount = latestSummary.participants.length;
@@ -683,53 +700,41 @@ class _CompactVenueList extends StatelessWidget {
 
   const _CompactVenueList({required this.summary, required this.shortCode});
 
-  List<({String placeId, String name})> get _topVenues {
-    final venues = <({String placeId, String name})>[];
-
-    // Best venue always first
-    if (summary.bestVenue != null) {
-      venues.add((placeId: summary.bestVenue!.placeId, name: summary.bestVenue!.name));
-    }
-
-    // Top voted venues (exclude best venue to avoid duplication)
-    final sorted = summary.voteSummary.values.toList()
-      ..sort((a, b) => b.upVotes.compareTo(a.upVotes));
-    for (final v in sorted) {
-      if (venues.length >= 3) break;
-      if (venues.any((e) => e.placeId == v.placeId)) continue;
-      venues.add((
-        placeId: v.placeId,
-        name: summary.venueNames[v.placeId] ?? v.placeId,
-      ));
-    }
-
-    return venues;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final venues = _topVenues;
-    if (venues.isEmpty) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Top Spots',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-        ),
-        const SizedBox(height: 8),
-        ...venues.map((v) {
-          final voteData = summary.voteSummary[v.placeId];
-          return _VenueRow(
-            placeId: v.placeId,
-            name: v.name,
-            upCount: voteData?.upVotes ?? 0,
-            downCount: voteData?.downVotes ?? 0,
-            myVote: voteData?.myVote,
-            shortCode: shortCode,
-          );
-        }),
-      ],
+    return BlocBuilder<VenueBloc, VenueState>(
+      builder: (context, venueState) {
+        final List<VenueEntity> venues;
+        if (venueState is VenuesLoaded && venueState.venues.isNotEmpty) {
+          venues = venueState.venues.take(5).toList();
+        } else if (summary.bestVenue != null) {
+          venues = [summary.bestVenue!];
+        } else {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Top Spots',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+            const SizedBox(height: 8),
+            ...venues.map((venue) {
+              final voteData = summary.voteSummary[venue.placeId];
+              return _VenueRow(
+                placeId: venue.placeId,
+                name: venue.name,
+                upCount: voteData?.upVotes ?? 0,
+                downCount: voteData?.downVotes ?? 0,
+                myVote: voteData?.myVote,
+                shortCode: shortCode,
+              );
+            }),
+          ],
+        );
+      },
     );
   }
 }
@@ -842,19 +847,29 @@ class _SeeAllVenuesButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: OutlinedButton.icon(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(
-            builder: (_) => VenuesPage(
-              shortCode: shortCode,
-              midpointLat: summary.midpointLat!,
-              midpointLng: summary.midpointLng!,
-              participantNames: {
-                for (final p in summary.participants)
-                  p.id: p.name ?? 'Anonymous',
-              },
+        onPressed: () {
+          final venueBloc = context.read<VenueBloc>();
+          final collabBloc = context.read<CollaborationBloc>();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => MultiBlocProvider(
+                providers: [
+                  BlocProvider.value(value: venueBloc),
+                  BlocProvider.value(value: collabBloc),
+                ],
+                child: VenuesPage(
+                  shortCode: shortCode,
+                  midpointLat: summary.midpointLat!,
+                  midpointLng: summary.midpointLng!,
+                  participantNames: {
+                    for (final p in summary.participants)
+                      p.id: p.name ?? 'Anonymous',
+                  },
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        },
         icon: const Icon(Icons.explore_outlined),
         label: const Text('See All Venues'),
         style: OutlinedButton.styleFrom(
