@@ -78,17 +78,19 @@ class _AddLocationPageState extends State<AddLocationPage> {
                 selectedType: _venueType,
                 onChanged: (type) => setState(() => _venueType = type),
               ),
-              const SizedBox(height: 32),
-              SwitchListTile(
-                value: _halalOnly,
-                onChanged: (v) => setState(() => _halalOnly = v),
-                title: const Text(
-                  AppStrings.halalOnly,
-                  style: TextStyle(fontWeight: FontWeight.w600),
+              if (_venueType == 'restaurant' || _venueType == 'cafe') ...[
+                const SizedBox(height: 32),
+                SwitchListTile(
+                  value: _halalOnly,
+                  onChanged: (v) => setState(() => _halalOnly = v),
+                  title: const Text(
+                    AppStrings.halalOnly,
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  activeThumbColor: AppColors.primary,
+                  contentPadding: EdgeInsets.zero,
                 ),
-                activeThumbColor: AppColors.primary,
-                contentPadding: EdgeInsets.zero,
-              ),
+              ],
               const SizedBox(height: 32),
               BlocBuilder<SessionBloc, SessionState>(
                 builder: (context, state) {
