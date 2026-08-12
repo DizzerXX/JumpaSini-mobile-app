@@ -3,8 +3,12 @@ import 'package:flutter/foundation.dart';
 
 import '../constants/api_constants.dart';
 import '../errors/exceptions.dart';
+import '../storage/participant_identity_store.dart';
 
 class ApiClient {
+  /// Matches the short code in .../sessions/{shortCode}/...
+  static final _sessionPath = RegExp(r'/sessions/([^/?#]+)');
+
   late final Dio _dio;
 
   ApiClient() {
@@ -25,6 +29,28 @@ class ApiClient {
         LogInterceptor(requestBody: true, responseBody: true, error: true),
       );
     }
+
+    // Attaches this device's participant identity to session-scoped requests, so
+    // the backend can report which way this participant voted (`my_vote`).
+    // Centralised here so any future session endpoint gets it for free.
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) async {
+          final shortCode = _sessionPath.firstMatch(options.path)?.group(1);
+
+          if (shortCode != null) {
+            final identity = await ParticipantIdentityStore.read(shortCode);
+
+            if (identity != null) {
+              options.headers['X-Participant-Id'] = identity.participantId;
+              options.headers['X-Participant-Token'] = identity.accessToken;
+            }
+          }
+
+          handler.next(options);
+        },
+      ),
+    );
 
     _dio.interceptors.add(
       InterceptorsWrapper(
