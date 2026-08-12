@@ -1,3 +1,6 @@
+import 'package:dartz/dartz.dart';
+
+import '../../../../core/errors/failures.dart';
 import '../entities/session_entity.dart';
 import '../repositories/session_repository.dart';
 
@@ -16,7 +19,7 @@ class RemoveParticipant {
 
   const RemoveParticipant(this._repository);
 
-  Future<SessionEntity> call(RemoveParticipantParams params) =>
+  Future<Either<Failure, SessionEntity>> call(RemoveParticipantParams params) =>
       _repository.removeParticipant(
         shortCode: params.shortCode,
         participantId: params.participantId,

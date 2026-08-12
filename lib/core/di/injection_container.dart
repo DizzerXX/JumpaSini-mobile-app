@@ -11,6 +11,7 @@ import '../../features/collaboration/domain/usecases/get_votes.dart';
 import '../../features/collaboration/domain/usecases/start_voting.dart';
 import '../../features/collaboration/domain/usecases/trigger_midpoint.dart';
 import '../../features/collaboration/presentation/bloc/collaboration_bloc.dart';
+import '../../features/session/data/datasources/places_remote_datasource.dart';
 import '../../features/session/data/datasources/session_remote_datasource.dart';
 import '../../features/session/data/repositories/session_repository_impl.dart';
 import '../../features/session/domain/repositories/session_repository.dart';
@@ -26,12 +27,18 @@ import '../../features/venue/domain/repositories/venue_repository.dart';
 import '../../features/venue/domain/usecases/get_recommendation.dart';
 import '../../features/venue/domain/usecases/get_venues.dart';
 import '../../features/venue/presentation/bloc/venue_bloc.dart';
+import '../../features/venue/presentation/bloc/weather_bloc.dart';
 
 final sl = GetIt.instance;
 
 void setup() {
   // Network
   sl.registerLazySingleton<ApiClient>(ApiClient.new);
+
+  // ── Places (backend proxy) ───────────────────────────────────────────────
+  sl.registerLazySingleton<PlacesRemoteDatasource>(
+    () => PlacesRemoteDatasourceImpl(sl()),
+  );
 
   // ── Session ──────────────────────────────────────────────────────────────
   sl.registerLazySingleton<SessionRemoteDatasource>(
@@ -95,4 +102,5 @@ void setup() {
       venueRepository: sl(),
     ),
   );
+  sl.registerFactory(() => WeatherBloc(venueRepository: sl()));
 }

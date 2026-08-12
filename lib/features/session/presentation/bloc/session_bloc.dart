@@ -43,18 +43,19 @@ class SessionBloc extends Bloc<SessionEvent, SessionState> {
     Emitter<SessionState> emit,
   ) async {
     emit(const SessionLoading());
-    try {
-      final session = await _createSession(
-        CreateSessionParams(
-          transportMode: event.transportMode,
-          venueType: event.venueType,
-          halalFilter: event.halalFilter,
-        ),
-      );
-      emit(SessionCreated(session));
-    } on Failure catch (e) {
-      emit(SessionError(_failureMessage(e)));
-    }
+
+    final result = await _createSession(
+      CreateSessionParams(
+        transportMode: event.transportMode,
+        venueType: event.venueType,
+        halalFilter: event.halalFilter,
+      ),
+    );
+
+    result.fold(
+      (failure) => emit(_errorFor(failure)),
+      (session) => emit(SessionCreated(session)),
+    );
   }
 
   Future<void> _onAddParticipant(
@@ -62,22 +63,21 @@ class SessionBloc extends Bloc<SessionEvent, SessionState> {
     Emitter<SessionState> emit,
   ) async {
     emit(const SessionLoading());
-    try {
-      final session = await _addParticipant(
-        AddParticipantParams(
-          shortCode: event.shortCode,
-          name: event.name,
-          address: event.address,
-          latitude: event.latitude,
-          longitude: event.longitude,
-        ),
-      );
-      emit(ParticipantAdded(session));
-    } on ValidationFailure catch (e) {
-      emit(SessionError(e.message, errors: e.errors));
-    } on Failure catch (e) {
-      emit(SessionError(_failureMessage(e)));
-    }
+
+    final result = await _addParticipant(
+      AddParticipantParams(
+        shortCode: event.shortCode,
+        name: event.name,
+        address: event.address,
+        latitude: event.latitude,
+        longitude: event.longitude,
+      ),
+    );
+
+    result.fold(
+      (failure) => emit(_errorFor(failure)),
+      (session) => emit(ParticipantAdded(session)),
+    );
   }
 
   Future<void> _onGetSession(
@@ -85,12 +85,13 @@ class SessionBloc extends Bloc<SessionEvent, SessionState> {
     Emitter<SessionState> emit,
   ) async {
     emit(const SessionLoading());
-    try {
-      final session = await _getSession(event.shortCode);
-      emit(SessionLoaded(session));
-    } on Failure catch (e) {
-      emit(SessionError(_failureMessage(e)));
-    }
+
+    final result = await _getSession(event.shortCode);
+
+    result.fold(
+      (failure) => emit(_errorFor(failure)),
+      (session) => emit(SessionLoaded(session)),
+    );
   }
 
   Future<void> _onRemoveParticipant(
@@ -98,17 +99,18 @@ class SessionBloc extends Bloc<SessionEvent, SessionState> {
     Emitter<SessionState> emit,
   ) async {
     emit(const SessionLoading());
-    try {
-      final session = await _removeParticipant(
-        RemoveParticipantParams(
-          shortCode: event.shortCode,
-          participantId: event.participantId,
-        ),
-      );
-      emit(ParticipantRemoved(session));
-    } on Failure catch (e) {
-      emit(SessionError(_failureMessage(e)));
-    }
+
+    final result = await _removeParticipant(
+      RemoveParticipantParams(
+        shortCode: event.shortCode,
+        participantId: event.participantId,
+      ),
+    );
+
+    result.fold(
+      (failure) => emit(_errorFor(failure)),
+      (session) => emit(ParticipantRemoved(session)),
+    );
   }
 
   Future<void> _onCalculateMidpoint(
@@ -116,17 +118,27 @@ class SessionBloc extends Bloc<SessionEvent, SessionState> {
     Emitter<SessionState> emit,
   ) async {
     emit(const SessionLoading());
-    try {
-      final result = await _calculateMidpoint(event.shortCode);
-      emit(MidpointCalculated(
+
+    final result = await _calculateMidpoint(event.shortCode);
+
+    result.fold(
+      (failure) => emit(_errorFor(failure)),
+      (midpoint) => emit(MidpointCalculated(
         shortCode: event.shortCode,
-        lat: result.lat,
-        lng: result.lng,
-        isFair: result.isFair,
-      ));
-    } on Failure catch (e) {
-      emit(SessionError(_failureMessage(e)));
+        lat: midpoint.lat,
+        lng: midpoint.lng,
+        isFair: midpoint.isFair,
+      )),
+    );
+  }
+
+  /// Validation failures carry field errors worth surfacing; everything else
+  /// collapses to a friendly message.
+  SessionError _errorFor(Failure failure) {
+    if (failure is ValidationFailure) {
+      return SessionError(failure.message, errors: failure.errors);
     }
+    return SessionError(_failureMessage(failure));
   }
 
   String _failureMessage(Failure failure) {

@@ -51,11 +51,3 @@ class LoadRecommendationEvent extends VenueEvent {
   List<Object?> get props => [shortCode];
 }
 
-class LoadWeatherEvent extends VenueEvent {
-  final String shortCode;
-
-  const LoadWeatherEvent(this.shortCode);
-
-  @override
-  List<Object?> get props => [shortCode];
-}

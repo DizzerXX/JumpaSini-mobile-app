@@ -57,9 +57,15 @@ class LocationPermissionDialog extends StatelessWidget {
                 await Geolocator.openAppSettings();
                 if (context.mounted) Navigator.of(context).pop(false);
               } else {
-                final granted =
-                    await LocationPermissionHandler.requestLocationPermission();
-                if (context.mounted) Navigator.of(context).pop(granted);
+                try {
+                  final granted = await LocationPermissionHandler
+                      .requestLocationPermission();
+                  if (context.mounted) Navigator.of(context).pop(granted);
+                } on LocationServiceDisabledException {
+                  // Permission alone won't fix this — the device's GPS is off.
+                  await Geolocator.openLocationSettings();
+                  if (context.mounted) Navigator.of(context).pop(false);
+                }
               }
             },
             style: ElevatedButton.styleFrom(

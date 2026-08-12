@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test
+
+      # Address lookups must go through the backend /places proxy — no Places SDK
+      # and no Google key belongs in the APK. Only the Maps SDK render key, which is
+      # injected into AndroidManifest from local.properties at build time.
+      # Matches real imports and the dependency entry, not prose in comments.
+      - name: Assert no Places SDK usage
+        run: |
+          if grep -rn "^import 'package:flutter_google_places_sdk" lib/; then
+            echo "::error::Places SDK import found. Use the backend /places proxy."
+            exit 1
+          fi
+          if grep -n "^[[:space:]]*flutter_google_places_sdk:" pubspec.yaml; then
+            echo "::error::Places SDK dependency found in pubspec.yaml."
+            exit 1
+          fi
+
+      - name: Assert no hardcoded Google API key
+        run: |
+          if grep -rn "AIza[0-9A-Za-z_-]\{35\}" lib/ android/ ; then
+            echo "::error::Hardcoded Google API key found."
+            exit 1
+          fi

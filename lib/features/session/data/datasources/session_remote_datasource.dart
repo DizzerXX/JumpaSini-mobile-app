@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/participant_identity_store.dart';
 import '../models/session_model.dart';
 
 abstract class SessionRemoteDatasource {
@@ -80,6 +81,24 @@ class SessionRemoteDatasourceImpl implements SessionRemoteDatasource {
         },
       );
       final data = response.data!['data'] as Map<String, dynamic>;
+
+      // Stash the one-time identity token: it is required to vote and to leave,
+      // and the backend never returns it again after this response.
+      final participant = data['participant'] as Map<String, dynamic>?;
+      final participantId = participant?['id'] as String?;
+      final accessToken = data['access_token'] as String?;
+
+      if (participantId != null && accessToken != null) {
+        await ParticipantIdentityStore.save(
+          shortCode,
+          ParticipantIdentity(
+            participantId: participantId,
+            accessToken: accessToken,
+            name: participant?['name'] as String?,
+          ),
+        );
+      }
+
       return SessionModel.fromJson(data['session'] as Map<String, dynamic>);
     } on DioException catch (e) {
       _rethrowMapped(e);
@@ -106,9 +125,19 @@ class SessionRemoteDatasourceImpl implements SessionRemoteDatasource {
     required String participantId,
   }) async {
     try {
+      // Only present if this device joined as this participant — the backend
+      // rejects the removal (403) without a matching token.
+      final identity = await ParticipantIdentityStore.read(shortCode);
+
       final response = await _client.dio.delete<Map<String, dynamic>>(
         ApiConstants.participantById(shortCode, participantId),
+        data: {'access_token': identity?.accessToken ?? ''},
       );
+
+      if (identity?.participantId == participantId) {
+        await ParticipantIdentityStore.clear(shortCode);
+      }
+
       return SessionModel.fromJson(
         response.data!['data'] as Map<String, dynamic>,
       );

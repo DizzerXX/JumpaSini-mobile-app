@@ -19,6 +19,15 @@
         android:label="JumpaSini"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!--
+          Maps SDK key for rendering map tiles only — Places/geocoding go through the
+          backend proxy. Supplied at build time from android/local.properties
+          (MAPS_API_KEY), so it is not committed. Restrict this key in Google Cloud to
+          "Android apps" (package name + signing SHA-1) and the Maps SDK for Android.
+        -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -38,8 +47,5 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-        <meta-data
-            android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDDnyee-T-FoRTr74S3MTgL6m_spHPL_AU" />
     </application>
 </manifest>

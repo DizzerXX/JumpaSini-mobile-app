@@ -14,6 +14,7 @@ import '../../domain/entities/recommendation_entity.dart';
 import '../../domain/entities/travel_time.dart';
 import '../../domain/entities/venue_entity.dart';
 import '../bloc/venue_bloc.dart';
+import '../bloc/weather_bloc.dart';
 import '../widgets/best_pick_banner.dart';
 import '../widgets/travel_time_row.dart';
 import '../widgets/venue_detail_sheet.dart';
@@ -43,6 +44,9 @@ class RecommendationPage extends StatelessWidget {
         BlocProvider(
           create: (_) => sl<CollaborationBloc>()
             ..add(GetVotesEvent(shortCode)),
+        ),
+        BlocProvider(
+          create: (_) => sl<WeatherBloc>(),
         ),
       ],
       child: _RecommendationView(

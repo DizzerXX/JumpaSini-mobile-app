@@ -17,6 +17,7 @@ import '../bloc/collaboration_state.dart';
 import '../../../session/domain/entities/participant_entity.dart';
 import '../../../venue/domain/entities/venue_entity.dart';
 import '../../../venue/presentation/bloc/venue_bloc.dart';
+import '../../../venue/presentation/bloc/weather_bloc.dart';
 import '../../../venue/presentation/pages/venues_page.dart';
 import '../../../venue/presentation/widgets/best_pick_banner.dart';
 import '../widgets/confirmed_venue_card.dart';
@@ -39,6 +40,9 @@ class SessionSummaryPage extends StatelessWidget {
         ),
         BlocProvider(
           create: (_) => sl<VenueBloc>(),
+        ),
+        BlocProvider(
+          create: (_) => sl<WeatherBloc>(),
         ),
       ],
       child: _SessionSummaryView(shortCode: shortCode),

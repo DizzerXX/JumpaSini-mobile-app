@@ -21,9 +21,11 @@ dependencies:
   get_it: ^8.0.2
 
   # Location
+  # NOTE: no Places SDK here on purpose — address autocomplete/details go through the
+  # backend's /places proxy so no Google key ships in the APK. google_maps_flutter is
+  # for map *rendering* only; its key lives in AndroidManifest via a build property.
   geolocator: ^13.0.2
   google_maps_flutter: ^2.9.0
-  flutter_google_places_sdk: ">=0.4.3 <2.0.0"
 
   # Local storage
   shared_preferences: ^2.3.3

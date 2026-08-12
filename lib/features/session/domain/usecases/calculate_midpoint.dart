@@ -1,3 +1,6 @@
+import 'package:dartz/dartz.dart';
+
+import '../../../../core/errors/failures.dart';
 import '../repositories/session_repository.dart';
 
 class CalculateMidpoint {
@@ -5,6 +8,6 @@ class CalculateMidpoint {
 
   const CalculateMidpoint(this._repository);
 
-  Future<({double lat, double lng, bool isFair})> call(String shortCode) =>
+  Future<Either<Failure, ({double lat, double lng, bool isFair})>> call(String shortCode) =>
       _repository.calculateMidpoint(shortCode);
 }

@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import '../../../../core/constants/api_constants.dart';
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/network/api_client.dart';
+import '../../../../core/storage/participant_identity_store.dart';
 import '../../domain/entities/vote_summary_entity.dart';
 import '../models/session_summary_model.dart';
 import '../models/vote_summary_model.dart';
@@ -42,14 +43,25 @@ class CollaborationRemoteDatasourceImpl
     String? participantName,
     required String vote,
   }) async {
+    // Votes are keyed on participant_id server-side, so this device must have
+    // joined the session. Fail with a clear message rather than sending an
+    // unidentified vote the backend would reject.
+    final identity = await ParticipantIdentityStore.read(shortCode);
+
+    if (identity == null) {
+      throw const ValidationException('Join this session first to vote.');
+    }
+
     try {
       final response = await _client.dio.post<Map<String, dynamic>>(
         ApiConstants.votes(shortCode),
         data: {
-          'google_place_id':  placeId,
-          'venue_name':       venueName,
-          if (participantName != null) 'participant_name': participantName,
-          'vote':             vote,
+          'google_place_id': placeId,
+          'venue_name':      venueName,
+          'participant_id':  identity.participantId,
+          'access_token':    identity.accessToken,
+          'participant_name': participantName ?? identity.name,
+          'vote':            vote,
         },
       );
       final rawSummary =

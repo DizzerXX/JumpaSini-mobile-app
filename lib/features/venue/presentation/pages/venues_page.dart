@@ -5,7 +5,7 @@ import 'package:shimmer/shimmer.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../collaboration/presentation/bloc/collaboration_bloc.dart';
 import '../../domain/entities/venue_entity.dart';
-import '../../domain/entities/weather_assessment.dart';
+import '../bloc/weather_bloc.dart';
 import '../bloc/venue_bloc.dart';
 import '../widgets/venue_card.dart';
 import '../widgets/venue_detail_sheet.dart';
@@ -58,7 +58,6 @@ class _VenuesViewState extends State<_VenuesView>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _halalOnly = false;
-  WeatherAssessment? _weather;
 
   @override
   void initState() {
@@ -70,7 +69,8 @@ class _VenuesViewState extends State<_VenuesView>
       if (venueBloc.state is! VenuesLoaded && venueBloc.state is! VenueLoading) {
         venueBloc.add(LoadVenuesEvent(widget.shortCode));
       }
-      venueBloc.add(LoadWeatherEvent(widget.shortCode));
+      // Weather has its own bloc — loading it can no longer wipe the venue list.
+      context.read<WeatherBloc>().add(LoadWeatherEvent(widget.shortCode));
     });
   }
 
@@ -130,14 +130,15 @@ class _VenuesViewState extends State<_VenuesView>
                 backgroundColor: AppColors.error,
               ),
             );
-          } else if (state is WeatherLoaded) {
-            setState(() => _weather = state.assessment);
           }
         },
         child: Column(
           children: [
-            if (_weather != null)
-              WeatherBanner(assessment: _weather!),
+            BlocBuilder<WeatherBloc, WeatherState>(
+              builder: (context, state) => state is WeatherLoaded
+                  ? WeatherBanner(assessment: state.assessment)
+                  : const SizedBox.shrink(),
+            ),
             if (_halalOnly)
               Container(
                 color: AppColors.primaryLight,

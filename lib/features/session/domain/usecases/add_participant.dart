@@ -1,3 +1,6 @@
+import 'package:dartz/dartz.dart';
+
+import '../../../../core/errors/failures.dart';
 import '../entities/session_entity.dart';
 import '../repositories/session_repository.dart';
 
@@ -22,7 +25,7 @@ class AddParticipant {
 
   const AddParticipant(this._repository);
 
-  Future<SessionEntity> call(AddParticipantParams params) =>
+  Future<Either<Failure, SessionEntity>> call(AddParticipantParams params) =>
       _repository.addParticipant(
         shortCode: params.shortCode,
         name: params.name,

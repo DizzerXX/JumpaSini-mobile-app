@@ -48,6 +48,15 @@ android {
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+
+        // Maps SDK key for map rendering, injected into AndroidManifest.
+        // Set MAPS_API_KEY in android/local.properties (gitignored) or as an env var
+        // in CI. Empty means the map renders blank — the rest of the app still works,
+        // since all Places/geocoding calls go through the backend proxy.
+        manifestPlaceholders += [
+            MAPS_API_KEY: localProperties.getProperty("MAPS_API_KEY")
+                ?: (System.getenv("MAPS_API_KEY") ?: "")
+        ]
     }
 
     buildTypes {

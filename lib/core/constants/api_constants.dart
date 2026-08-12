@@ -30,6 +30,11 @@ class ApiConstants {
   static String weather(String code) => '/sessions/$code/weather';
   static String votingStart(String code) => '/sessions/$code/voting/start';
 
-  static const String googleMapsApiKey = 'AIzaSyDDnyee-T-FoRTr74S3MTgL6m_spHPL_AU';
-  static const String googlePlacesApiKey = 'AIzaSyDDnyee-T-FoRTr74S3MTgL6m_spHPL_AU';
+  // ─── Places proxy ──────────────────────────────────────────────────────────
+  // Address lookups go through the backend, which owns the Google key and caches
+  // results. No Places key ships in this app.
+  static const String placesAutocomplete = '/places/autocomplete';
+  static const String placesReverseGeocode = '/places/reverse-geocode';
+
+  static String placeDetails(String placeId) => '/places/$placeId';
 }

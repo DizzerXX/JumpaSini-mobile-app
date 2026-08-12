@@ -1,3 +1,6 @@
+import 'package:dartz/dartz.dart';
+
+import '../../../../core/errors/failures.dart';
 import '../entities/session_entity.dart';
 import '../repositories/session_repository.dart';
 
@@ -6,6 +9,6 @@ class GetSession {
 
   const GetSession(this._repository);
 
-  Future<SessionEntity> call(String shortCode) =>
+  Future<Either<Failure, SessionEntity>> call(String shortCode) =>
       _repository.getSession(shortCode);
 }

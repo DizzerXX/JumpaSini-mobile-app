@@ -1,3 +1,6 @@
+import 'package:dartz/dartz.dart';
+
+import '../../../../core/errors/failures.dart';
 import '../entities/session_entity.dart';
 import '../repositories/session_repository.dart';
 
@@ -18,7 +21,7 @@ class CreateSession {
 
   const CreateSession(this._repository);
 
-  Future<SessionEntity> call(CreateSessionParams params) =>
+  Future<Either<Failure, SessionEntity>> call(CreateSessionParams params) =>
       _repository.createSession(
         transportMode: params.transportMode,
         venueType: params.venueType,

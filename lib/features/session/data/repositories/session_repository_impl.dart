@@ -1,3 +1,5 @@
+import 'package:dartz/dartz.dart';
+
 import '../../../../core/errors/exceptions.dart';
 import '../../../../core/errors/failures.dart';
 import '../../domain/entities/session_entity.dart';
@@ -10,93 +12,71 @@ class SessionRepositoryImpl implements SessionRepository {
   const SessionRepositoryImpl(this._datasource);
 
   @override
-  Future<SessionEntity> createSession({
+  Future<Either<Failure, SessionEntity>> createSession({
     required String transportMode,
     required String venueType,
     required bool halalFilter,
-  }) async {
-    try {
-      return await _datasource.createSession(
-        transportMode: transportMode,
-        venueType: venueType,
-        halalFilter: halalFilter,
-      );
-    } on NetworkException catch (e) {
-      throw NetworkFailure(e.message);
-    } on ServerException catch (e) {
-      throw ServerFailure(e.message, statusCode: e.statusCode);
-    }
+  }) {
+    return _guard(() => _datasource.createSession(
+          transportMode: transportMode,
+          venueType: venueType,
+          halalFilter: halalFilter,
+        ));
   }
 
   @override
-  Future<SessionEntity> addParticipant({
+  Future<Either<Failure, SessionEntity>> addParticipant({
     required String shortCode,
     String? name,
     required String address,
     required double latitude,
     required double longitude,
-  }) async {
-    try {
-      return await _datasource.addParticipant(
-        shortCode: shortCode,
-        name: name,
-        address: address,
-        latitude: latitude,
-        longitude: longitude,
-      );
-    } on NotFoundException catch (e) {
-      throw NotFoundFailure(e.message);
-    } on ValidationException catch (e) {
-      throw ValidationFailure(e.message, errors: e.errors);
-    } on NetworkException catch (e) {
-      throw NetworkFailure(e.message);
-    } on ServerException catch (e) {
-      throw ServerFailure(e.message, statusCode: e.statusCode);
-    }
+  }) {
+    return _guard(() => _datasource.addParticipant(
+          shortCode: shortCode,
+          name: name,
+          address: address,
+          latitude: latitude,
+          longitude: longitude,
+        ));
   }
 
   @override
-  Future<SessionEntity> getSession(String shortCode) async {
-    try {
-      return await _datasource.getSession(shortCode);
-    } on NotFoundException catch (e) {
-      throw NotFoundFailure(e.message);
-    } on NetworkException catch (e) {
-      throw NetworkFailure(e.message);
-    } on ServerException catch (e) {
-      throw ServerFailure(e.message, statusCode: e.statusCode);
-    }
+  Future<Either<Failure, SessionEntity>> getSession(String shortCode) {
+    return _guard(() => _datasource.getSession(shortCode));
   }
 
   @override
-  Future<SessionEntity> removeParticipant({
+  Future<Either<Failure, SessionEntity>> removeParticipant({
     required String shortCode,
     required String participantId,
-  }) async {
-    try {
-      return await _datasource.removeParticipant(
-        shortCode: shortCode,
-        participantId: participantId,
-      );
-    } on NotFoundException catch (e) {
-      throw NotFoundFailure(e.message);
-    } on NetworkException catch (e) {
-      throw NetworkFailure(e.message);
-    } on ServerException catch (e) {
-      throw ServerFailure(e.message, statusCode: e.statusCode);
-    }
+  }) {
+    return _guard(() => _datasource.removeParticipant(
+          shortCode: shortCode,
+          participantId: participantId,
+        ));
   }
 
   @override
-  Future<({double lat, double lng, bool isFair})> calculateMidpoint(
+  Future<Either<Failure, ({double lat, double lng, bool isFair})>> calculateMidpoint(
     String shortCode,
-  ) async {
+  ) {
+    return _guard(() => _datasource.calculateMidpoint(shortCode));
+  }
+
+  /// Single translation point from data-layer exceptions to domain failures —
+  /// previously each method repeated the same four catch clauses.
+  Future<Either<Failure, T>> _guard<T>(Future<T> Function() operation) async {
     try {
-      return await _datasource.calculateMidpoint(shortCode);
+      return Right(await operation());
+    } on NotFoundException catch (e) {
+      return Left(NotFoundFailure(e.message));
+    } on ValidationException catch (e) {
+      return Left(ValidationFailure(e.message, errors: e.errors));
     } on NetworkException catch (e) {
-      throw NetworkFailure(e.message);
+      return Left(NetworkFailure(e.message));
     } on ServerException catch (e) {
-      throw ServerFailure(e.message, statusCode: e.statusCode);
+      return Left(ServerFailure(e.message, statusCode: e.statusCode));
     }
   }
 }

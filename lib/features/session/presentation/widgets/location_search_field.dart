@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_google_places_sdk/flutter_google_places_sdk.dart';
+import 'dart:async';
 
-import '../../../../core/constants/api_constants.dart';
+import 'package:flutter/material.dart';
+import 'package:uuid/uuid.dart';
+
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
+import '../../../../core/di/injection_container.dart';
+import '../../data/datasources/places_remote_datasource.dart';
 
 class LocationResult {
   final String address;
@@ -32,31 +35,39 @@ class LocationSearchField extends StatefulWidget {
 }
 
 class _LocationSearchFieldState extends State<LocationSearchField> {
-  late final FlutterGooglePlacesSdk _places;
-  late final TextEditingController _controller;
-  List<AutocompletePrediction> _predictions = [];
-  bool _showPredictions = false;
+  static const _debounce = Duration(milliseconds: 300);
+  static const _uuid = Uuid();
 
-  static const _malaysiaBias = LatLngBounds(
-    southwest: LatLng(lat: 2.6, lng: 101.2),
-    northeast: LatLng(lat: 3.9, lng: 102.0),
-  );
+  late final PlacesRemoteDatasource _places;
+  late final TextEditingController _controller;
+
+  List<PlaceSuggestion> _predictions = [];
+  bool _showPredictions = false;
+  bool _isResolving = false;
+  Timer? _debounceTimer;
+
+  /// Groups this user's keystrokes plus the final details call into one billable
+  /// Google autocomplete session. Regenerated once a place is resolved.
+  String _sessionToken = _uuid.v4();
 
   @override
   void initState() {
     super.initState();
-    _places = FlutterGooglePlacesSdk(ApiConstants.googlePlacesApiKey);
+    _places = sl<PlacesRemoteDatasource>();
     _controller = TextEditingController(text: widget.initialValue);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _onChanged(String query) async {
-    if (query.length < 3) {
+  void _onChanged(String query) {
+    _debounceTimer?.cancel();
+
+    if (query.trim().length < 3) {
       setState(() {
         _predictions = [];
         _showPredictions = false;
@@ -64,47 +75,66 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
       return;
     }
 
+    // Debounced so a typed word costs one proxied request rather than one per key.
+    _debounceTimer = Timer(_debounce, () => _fetchPredictions(query));
+  }
+
+  Future<void> _fetchPredictions(String query) async {
     try {
-      final result = await _places.findAutocompletePredictions(
+      final results = await _places.autocomplete(
         query,
-        countries: ['MY'],
-        locationBias: _malaysiaBias,
+        sessionToken: _sessionToken,
       );
-      if (mounted) {
-        setState(() {
-          _predictions = result.predictions;
-          _showPredictions = result.predictions.isNotEmpty;
-        });
-      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _predictions = results;
+        _showPredictions = results.isNotEmpty;
+      });
     } catch (_) {
-      // silently ignore autocomplete errors
+      if (!mounted) return;
+      setState(() {
+        _predictions = [];
+        _showPredictions = false;
+      });
     }
   }
 
-  Future<void> _onPredictionSelected(AutocompletePrediction prediction) async {
-    setState(() => _showPredictions = false);
+  Future<void> _onPredictionSelected(PlaceSuggestion prediction) async {
+    setState(() {
+      _showPredictions = false;
+      _isResolving = true;
+    });
     _controller.text = prediction.fullText;
 
     try {
-      final result = await _places.fetchPlace(
+      final place = await _places.details(
         prediction.placeId,
-        fields: [PlaceField.Location, PlaceField.Address],
+        sessionToken: _sessionToken,
       );
-      final place = result.place;
-      final latLng = place?.latLng;
-      final address = place?.address ?? _controller.text;
 
-      if (latLng != null) {
-        widget.onLocationSelected(
-          LocationResult(
-            address: address,
-            latitude: latLng.lat,
-            longitude: latLng.lng,
+      // The autocomplete session ends once a place has been resolved.
+      _sessionToken = _uuid.v4();
+
+      widget.onLocationSelected(
+        LocationResult(
+          address: place.address.isNotEmpty ? place.address : prediction.fullText,
+          latitude: place.latitude,
+          longitude: place.longitude,
+        ),
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not resolve that address. Please try again.'),
+            backgroundColor: AppColors.error,
           ),
         );
       }
-    } catch (_) {
-      // if place details fail, don't update — user can try again
+    } finally {
+      if (mounted) setState(() => _isResolving = false);
     }
   }
 
@@ -119,18 +149,7 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
           decoration: InputDecoration(
             hintText: AppStrings.searchLocation,
             prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary),
-            suffixIcon: _controller.text.isNotEmpty
-                ? IconButton(
-                    icon: const Icon(Icons.clear, color: AppColors.textSecondary),
-                    onPressed: () {
-                      _controller.clear();
-                      setState(() {
-                        _predictions = [];
-                        _showPredictions = false;
-                      });
-                    },
-                  )
-                : null,
+            suffixIcon: _buildSuffixIcon(),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.border),
@@ -157,7 +176,10 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
                   leading: const Icon(Icons.location_on, color: AppColors.primary),
                   title: Text(
                     prediction.primaryText,
-                    style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
                   ),
                   subtitle: prediction.secondaryText.isNotEmpty
                       ? Text(
@@ -171,6 +193,32 @@ class _LocationSearchFieldState extends State<LocationSearchField> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget? _buildSuffixIcon() {
+    if (_isResolving) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+
+    if (_controller.text.isEmpty) return null;
+
+    return IconButton(
+      icon: const Icon(Icons.clear, color: AppColors.textSecondary),
+      onPressed: () {
+        _controller.clear();
+        setState(() {
+          _predictions = [];
+          _showPredictions = false;
+        });
+      },
     );
   }
 }
