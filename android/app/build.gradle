@@ -61,7 +61,13 @@ android {
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            // key.properties is gitignored, so it is absent on CI and fresh clones.
+            // Fall back to debug signing there rather than failing the build: the APK
+            // is still installable for testing, and a debug-signed build cannot be
+            // published to Play, so this can't silently ship an unsigned release.
+            signingConfig keyPropertiesFile.exists()
+                ? signingConfigs.release
+                : signingConfigs.debug
         }
     }
 }
