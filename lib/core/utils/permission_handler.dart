@@ -1,13 +1,10 @@
 import 'package:geolocator/geolocator.dart';
 
-/// Thrown by [LocationPermissionHandler.requestLocationPermission] when the
-/// permission is granted but the device's location service (GPS) is off —
-/// distinct from a permission denial, since `openAppSettings()` won't help here.
-class LocationServiceDisabledException implements Exception {
-  const LocationServiceDisabledException();
-}
-
 class LocationPermissionHandler {
+  /// Throws geolocator's [LocationServiceDisabledException] when the device's
+  /// location service (GPS) is switched off. That is distinct from a permission
+  /// denial and needs a different remedy — opening app settings does not help,
+  /// the user has to enable location services themselves.
   static Future<bool> requestLocationPermission() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       throw const LocationServiceDisabledException();
